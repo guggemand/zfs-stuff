@@ -47,7 +47,7 @@ fi
 RUNNING=$($LOCALCMD get -H -o value dlx.dk.sync:running $LOCALFS)
 
 if [ "$RUNNING" != "-" ]; then
-  fail=$(($RUNNING+1)
+  fail=$(($RUNNING+1))
   $LOCALCMD set dlx.dk.sync:running=$fail $LOCALFS
   echo "Last sync is stil running! ($RUNNING)"
   exit 2
