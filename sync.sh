@@ -61,8 +61,8 @@ trap "$LOCALCMD set dlx.dk.sync:running=- $LOCALFS" 0 1 2 3 15
 #find newest snapshots
 RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -rH $REMOTEFS)
 RSNAP=${RSNAP##*@}
-LSNAP=$($LOCALCMD list -t snapshot -s creation -o name -rH $LOCALFS)
-LSNAP=${LSNAP##*@}
+LSNAPS=$($LOCALCMD list -t snapshot -s creation -o name -rH $LOCALFS)
+LSNAP=${LSNAPS##*@}
 
 #check if the newest remote snapshot exits locally, if not error
 if [ -n $RSNAP ]; then
@@ -78,11 +78,16 @@ if [ -n $RSNAP ]; then
     if [ -t 1 ]; then
       echo now syncing from $RSNAP to $LSNAP
     fi
-    if [ -t 1 -a -x "$PV" ]; then
-      $LOCALCMD send -I $LOCALFS@$RSNAP $LOCALFS@$LSNAP | $PV | $REMOTECMD receive -F $REMOTEFS
-    else
-      $LOCALCMD send -I $LOCALFS@$RSNAP $LOCALFS@$LSNAP | $REMOTECMD receive -F $REMOTEFS
-    fi
+    SNAP1=$RSNAP
+    for SNAP in ${LSNAPS##*@$RSNAP}; do
+      SNAP2=${SNAP##*@}
+      if [ -t 1 -a -x "$PV" ]; then
+        $LOCALCMD send -i $LOCALFS@$SNAP1 $LOCALFS@$SNAP2 | $PV | $REMOTECMD receive -F $REMOTEFS
+      else
+        $LOCALCMD send -i $LOCALFS@$SNAP1 $LOCALFS@$SNAP2 | $REMOTECMD receive -F $REMOTEFS
+      fi
+      SNAP1=$SNAP2
+    done
     exit
   fi
 fi
