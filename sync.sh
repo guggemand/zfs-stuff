@@ -11,7 +11,7 @@
 #  zfs set dlx.dk.sync:remotefs="remote/fs" local/fs
 #
 
-LOCALCMD=$(which zfs)
+LOCALCMD=/sbin/zfs
 PV=$(which pv)
 
 if [ -z "$1" ]; then

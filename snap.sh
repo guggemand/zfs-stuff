@@ -1,7 +1,7 @@
 #!/bin/sh
 
 FS=$1
-ZFS=$(which zfs)
+ZFS=/sbin/zfs
 DATE=$(which date)
 
 if [ -z "$1" ]; then

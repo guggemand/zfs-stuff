@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ZFS=$(which zfs)
+ZFS=/sbin/zfs
 
 if [ ! -x "$ZFS" ]; then
   echo "zfs binary is missing!"

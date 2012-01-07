@@ -1,6 +1,6 @@
 #!/bin/sh
 
-ZFS=$(which zfs)
+ZFS=/sbin/zfs
 
 if [ -z "$1" ]; then
   echo Usage: $0 FileSystem
