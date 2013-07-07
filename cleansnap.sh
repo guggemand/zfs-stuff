@@ -19,6 +19,10 @@ case $(uname) in
     DATE=/usr/gnu/bin/date
     BASH=/usr/bin/bash
     ;;
+  Linux)
+    DATE=/bin/date
+    BASH=/bin/bash
+    ;;
   FreeBSD)
     DATE=/usr/local/bin/gdate
     BASH=/usr/local/bin/bash
