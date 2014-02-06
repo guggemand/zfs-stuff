@@ -148,7 +148,7 @@ $BASH << 'EOF'
       if [ -t 1 ]; then
         echo "$SNAP slettes!"
       fi
-      $ZFS destroy $SNAP
+      $ZFS destroy -d $SNAP
     fi
   done
 EOF
