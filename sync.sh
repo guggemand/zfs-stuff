@@ -44,7 +44,7 @@ if [ "$REMOTECMD" = "-" ]; then
   exit 1
 fi
 
-RUNNING=$($LOCALCMD get -H -o value dlx.dk.sync:running $LOCALFS)
+RUNNING=$($LOCALCMD get -H -o value -s local dlx.dk.sync:running $LOCALFS)
 
 if [ "$RUNNING" != "-" ]; then
   fail=$(($RUNNING+1))
@@ -56,7 +56,7 @@ if [ "$RUNNING" != "-" ]; then
 fi
 
 $LOCALCMD set dlx.dk.sync:running=1 $LOCALFS
-trap "$LOCALCMD set dlx.dk.sync:running=- $LOCALFS" 0 1 2 3 15
+trap "$LOCALCMD inherit dlx.dk.sync:running $LOCALFS" 0 1 2 3 15
 
 #find newest snapshots
 RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -rH $REMOTEFS)
