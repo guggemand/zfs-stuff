@@ -46,7 +46,7 @@ fi
 
 RUNNING=$($LOCALCMD get -H -o value -s local dlx.dk.sync:running $LOCALFS)
 
-if [ "$RUNNING" != "-" ]; then
+if [ -n "$RUNNING" -a "$RUNNING" != "-" ]; then
   fail=$(($RUNNING+1))
   $LOCALCMD set dlx.dk.sync:running=$fail $LOCALFS
   if [ -t 1 ]; then
