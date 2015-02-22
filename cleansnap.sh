@@ -40,7 +40,9 @@ esac
 export DATE
 
 if ! $ZFS list -H $FS > /dev/null 2> /dev/null; then
-  echo Invalid FileSystem
+  if [ -t 1 ]; then
+    echo Invalid FileSystem
+  fi
   exit 1
 fi
 
