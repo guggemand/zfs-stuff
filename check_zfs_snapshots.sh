@@ -34,7 +34,7 @@ for i in $*; do
     echo "ERROR: $FS does not exist"
     exit 2
   fi
-  SNAP=$(echo "$DATA"|cut -f 2)
+  TIME=$(echo "$DATA"|cut -f 2)
   DIFF=$(($NOW-$TIME))
   if [ $DIFF -gt $MAXDIFF ]; then
     if [ -n "$ERRORS" ]; then
