@@ -15,18 +15,26 @@ shift
 
 for i in $*; do
   FS=${i%%:*}
+  FILESYSTEMS="$FILESYSTEMS $FS"
+done
+
+SNAPS=$(/sbin/zfs list -t snapshot -d 1 -H -p -o name,creation -s creation $FILESYSTEMS 2> /dev/null )
+
+for i in $*; do
+  FS=${i%%:*}
   if [ "$FS" = "$i" ]; then
     MAXDIFF=$DEFMAXDIFF
   else
     MAXDIFF=$((${i##*:}*60))
   fi
 
-  SNAP=$($ZFS list -t snapshot -d 1 -H -o name -s creation $FS 2> /dev/null | tail -n 1 )
+  DATA=$(echo "$SNAPS" | grep "^$FS@" | tail -n 1 )
+  SNAP=$(echo "$DATA"|cut -f 1)
   if [ -z $SNAP ]; then
     echo "ERROR: $FS does not exist"
     exit 2
   fi
-  TIME=$($ZFS get -p -o value -H creation $SNAP)
+  SNAP=$(echo "$DATA"|cut -f 2)
   DIFF=$(($NOW-$TIME))
   if [ $DIFF -gt $MAXDIFF ]; then
     if [ -n "$ERRORS" ]; then
