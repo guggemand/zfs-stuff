@@ -54,7 +54,7 @@ $BASH << 'EOF'
     timetosnap["$TIME"]="$SNAP"
     times[$i]="$TIME"
     i=$(($i+1))
-  done < <($ZFS list -t snapshot -d 1 -H -o name,creation -p -s creation $FS)
+  done <<<"$($ZFS list -t snapshot -d 1 -H -o name,creation -p -s creation $FS)"
 
   TIMES=${times[@]}
 
