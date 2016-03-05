@@ -13,12 +13,13 @@ fi
 
 REMOTEHOST=$1
 MBUFFER=$(which mbuffer)
+PATH=$PATH:/usr/local/bin:/usr/local/sbin
 
 shift
 
 if [ "$1" = "receive" ]; then
   if [ -x "$MBUFFER" ]; then
-    $MBUFFER -m 1G -q | pigz | ssh $REMOTEHOST pigz -d \| /sbin/zfs $*
+    $MBUFFER -m 1G -q -s 128k | pigz | ssh $REMOTEHOST pigz -d \| /sbin/zfs $*
   else
     pigz | ssh $REMOTEHOST pigz -d \| /sbin/zfs $*
   fi
