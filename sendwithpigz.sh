@@ -18,9 +18,9 @@ shift
 
 if [ "$1" = "receive" ]; then
   if [ -x "$MBUFFER" ]; then
-    $MBUFFER -m 1G -q | pigz | ssh -c arcfour $REMOTEHOST pigz -d \| /sbin/zfs $*
+    $MBUFFER -m 1G -q | pigz | ssh $REMOTEHOST pigz -d \| /sbin/zfs $*
   else
-    pigz | ssh -c arcfour $REMOTEHOST pigz -d \| /sbin/zfs $*
+    pigz | ssh $REMOTEHOST pigz -d \| /sbin/zfs $*
   fi
 elif [ "$1" = "list" ]; then
   ssh $REMOTEHOST /sbin/zfs $*
