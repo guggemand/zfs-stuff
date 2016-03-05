@@ -47,10 +47,8 @@ fi
 RUNNING=$($LOCALCMD get -H -o value -s local dlx.dk.sync:running $LOCALFS)
 
 if [ -n "$RUNNING" -a "$RUNNING" != "-" ]; then
-  fail=$(($RUNNING+1))
-  $LOCALCMD set dlx.dk.sync:running=$fail $LOCALFS
   if [ -t 1 ]; then
-    echo "Last sync is still running! ($RUNNING)"
+    echo "Last sync is still running!"
   fi
   exit 2
 fi
