@@ -74,7 +74,8 @@ fi
 if [ -n $RSNAP ]; then
   if [ "$RSNAP" != "$LSNAP" ]; then
     if [ -t 1 ]; then
-      echo now syncing from $RSNAP to $LSNAP
+      echo now syncing $LOCALFS
+      $LOCALCMD send -nvI $LOCALFS@$RSNAP $LOCALFS@$LSNAP
     fi
     SNAP1=$RSNAP
     for SNAP in ${LSNAPS##*@$RSNAP}; do
