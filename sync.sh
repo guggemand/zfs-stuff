@@ -63,7 +63,7 @@ LSNAPS=$($LOCALCMD list -t snapshot -s creation -o name -rH $LOCALFS)
 LSNAP=${LSNAPS##*@}
 
 #check if the newest remote snapshot exits locally, if not error
-if [ -n $RSNAP ]; then
+if [ -n "$RSNAP" ]; then
   if ! $LOCALCMD list $LOCALFS@$RSNAP > /dev/null 2>&1; then
     echo $RSNAP does not exits locally!!
     exit 2
@@ -71,7 +71,7 @@ if [ -n $RSNAP ]; then
 fi
 
 #check if newest snapshot is synced, if not do that
-if [ -n $RSNAP ]; then
+if [ -n "$RSNAP" ]; then
   if [ "$RSNAP" != "$LSNAP" ]; then
     if [ -t 1 ]; then
       echo now syncing $LOCALFS
