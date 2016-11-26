@@ -89,4 +89,17 @@ if [ -n "$RSNAP" ]; then
     done
     exit
   fi
+else
+  LSNAP=$(echo $LSNAPS)
+  LSNAP=${LSNAP%% *}
+  LSNAP=${LSNAP##*@}
+  if [ -t 1 ]; then
+    echo now syncing $LOCALFS
+    $LOCALCMD send -nv $LOCALFS@$LSNAP
+  fi
+  if [ -t 1 -a -x "$PV" ]; then
+    $LOCALCMD send $LOCALFS@$LSNAP | $PV | $REMOTECMD receive $REMOTEFS
+  else
+    $LOCALCMD send $LOCALFS@$LSNAP | $REMOTECMD receive $REMOTEFS
+  fi
 fi
