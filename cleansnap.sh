@@ -147,7 +147,7 @@ $BASH << 'EOF'
     SNAP=${timetosnap[$i]}
     if [ -z ${keeptimes[$i]} ]; then
       if [ -t 1 ]; then
-        echo "$SNAP slettes!"
+        echo "Deleting $SNAP!"
       fi
       $ZFS destroy -d $SNAP
     fi
