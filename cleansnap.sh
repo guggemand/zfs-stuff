@@ -49,55 +49,107 @@ fi
 $BASH << 'EOF'
   set -e
 
+  USEBM=0
+
+  BMDAYS=0
+  if [[ $DAYS = *:* ]]; then
+    BMDAYS=${DAYS##*:}
+    DAYS=${DAYS%%:*}
+    USEBM=1
+  fi
+
+  BMWEEKS=0
+  if [[ $WEEKS = *:* ]]; then
+    BMWEEKS=${WEEKS##*:}
+    WEEKS=${WEEKS%%:*}
+    USEBM=1
+  fi
+
+  BMMONTHS=0
+  if [[ $MONTHS = *:* ]]; then
+    BMMONTHS=${MONTHS##*:}
+    MONTHS=${MONTHS%%:*}
+    USEBM=1
+  fi
+
+  BMYEARS=0
+  if [[ $YEARS = *:* ]]; then
+    BMYEARS=${YEARS##*:}
+    YEARS=${YEARS%%:*}
+    USEBM=1
+  fi
+
+  if [ $USEBM -eq 1 ]; then
+    LISTTYPES=snapshot,bookmark
+  else
+    LISTTYPES=snapshot
+  fi
+
   i=1;
   while read SNAP TIME; do
     timetosnap["$TIME"]="$SNAP"
     times[$i]="$TIME"
     i=$(($i+1))
-  done <<<"$($ZFS list -t snapshot -d 1 -H -o name,creation -p -s creation $FS)"
+  done <<<"$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation $FS)"
 
   TIMES=${times[@]}
 
   # Find all the daily snapshots we want to keep
-  for ((i=0;i<$DAYS;i++)); do
+  for ((i=0;i<$DAYS+$BMDAYS;i++)); do
     TIME=$($DATE -d "$i days ago 00:00" +%s)
     for j in $TIMES; do
       if [ $j -ge $TIME ]; then
-        keeptimes[$j]=$j
+        if [ $i -ge $DAYS ]; then
+          keepbmtimes[$j]=$j
+        else
+          keeptimes[$j]=$j
+        fi
         break
       fi
     done
   done
 
   # Find all the weekly snapshots we want to keep
-  for ((i=1;i<=$WEEKS;i++)); do
+  for ((i=1;i<=$WEEKS+$BMWEEKS;i++)); do
     TIME=$($DATE -d "$i week ago sunday 00:00" +%s)
     for j in $TIMES; do
       if [ $j -ge $TIME ]; then
-        keeptimes[$j]=$j
+        if [ $i -ge $WEEKS ]; then
+          keepbmtimes[$j]=$j
+        else
+          keeptimes[$j]=$j
+        fi
         break
       fi
     done
   done
 
   # Find the monthly snapshots we want to keep
-  for ((i=0;i<$MONTHS;i++)); do
+  for ((i=0;i<$MONTHS+$BMMONTHS;i++)); do
     TIME=$($DATE +%s -d "$($DATE +%Y-%m-01) -$i month")
     for j in $TIMES; do
       if [ $j -ge $TIME ]; then
-        keeptimes[$j]=$j
+        if [ $i -ge $MONTHS ]; then
+          keepbmtimes[$j]=$j
+        else
+          keeptimes[$j]=$j
+        fi
         break
       fi
     done
   done
 
   # Find the yearly snapshots we want to keep
-  for ((i=0;i<$YEARS;i++)); do
+  for ((i=0;i<$YEARS+$BMYEARS;i++)); do
     #TIME=$($DATE +%s -d "$($DATE +%Y-01-01 -d "$i year ago")")
     TIME=$($DATE +%s -d "$($DATE +%Y-01-01) -$i year")
     for j in $TIMES; do
       if [ $j -ge $TIME ]; then
-        keeptimes[$j]=$j
+        if [ $i -ge $YEARS ]; then
+          keepbmtimes[$j]=$j
+        else
+          keeptimes[$j]=$j
+        fi
         break
       fi
     done
@@ -146,10 +198,25 @@ $BASH << 'EOF'
   for i in $TIMES; do
     SNAP=${timetosnap[$i]}
     if [ -z ${keeptimes[$i]} ]; then
-      if [ -t 1 ]; then
-        echo "Deleting $SNAP!"
+      if [[ $SNAP != *#* ]]; then
+        if [ ! -z ${keepbmtimes[$i]} ]; then
+          if [ -t 1 ]; then
+            echo "$SNAP saved as bookmark"
+          fi
+          $ZFS bookmark $SNAP ${SNAP/@/#}
+        fi
+        if [ -t 1 ]; then
+          echo "Deleting $SNAP!"
+        fi
+        $ZFS destroy -d $SNAP
+      else
+        if [ -z ${keepbmtimes[$i]} ]; then
+          if [ -t 1 ]; then
+            echo "Deleting $SNAP!"
+          fi
+          $ZFS destroy $SNAP
+        fi
       fi
-      $ZFS destroy -d $SNAP
     fi
   done
 EOF
