@@ -114,7 +114,7 @@ $BASH << 'EOF'
     TIME=$($DATE -d "$i week ago sunday 00:00" +%s)
     for j in $TIMES; do
       if [ $j -ge $TIME ]; then
-        if [ $i -ge $WEEKS ]; then
+        if [ $i -gt $WEEKS ]; then
           keepbmtimes[$j]=$j
         else
           keeptimes[$j]=$j
