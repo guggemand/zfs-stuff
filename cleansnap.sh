@@ -203,7 +203,9 @@ $BASH << 'EOF'
           if [ -t 1 ]; then
             echo "$SNAP saved as bookmark"
           fi
-          $ZFS bookmark $SNAP ${SNAP/@/#}
+          if [ $USEBM -eq 1 ]; then
+            $ZFS bookmark $SNAP ${SNAP/@/#}
+          fi
         fi
         if [ -t 1 ]; then
           echo "Deleting $SNAP!"
