@@ -9,6 +9,7 @@
 # Example
 #  zfs set dlx.dk.sync:remotecmd="ssh user@host /sbin/zfs" local/fs
 #  zfs set dlx.dk.sync:remotefs="remote/fs" local/fs
+#  zfs set dlx.dk.sync:sendargs="-w" local/fs
 #
 
 LOCALCMD=/sbin/zfs
@@ -33,6 +34,7 @@ fi
 
 REMOTEFS=$($LOCALCMD get -H -o value dlx.dk.sync:remotefs $LOCALFS)
 REMOTECMD=$($LOCALCMD get -H -o value dlx.dk.sync:remotecmd $LOCALFS)
+SENDARGS=$($LOCALCMD get -s local,default,inherited,temporary,received -H -o value dlx.dk.sync:sendargs $LOCALFS)
 
 if [ "$REMOTEFS" = "-" ]; then
   echo Missing dlx.dk.sync:remotefs property
@@ -75,15 +77,15 @@ if [ -n "$RSNAP" ]; then
   if [ "$RSNAP" != "$LSNAP" ]; then
     if [ -t 1 ]; then
       echo now syncing $LOCALFS
-      $LOCALCMD send -nvI $LOCALFS@$RSNAP $LOCALFS@$LSNAP
+      $LOCALCMD send $SENDARGS -nvI $LOCALFS@$RSNAP $LOCALFS@$LSNAP
     fi
     SNAP1=$RSNAP
     for SNAP in ${LSNAPS##*@$RSNAP}; do
       SNAP2=${SNAP##*@}
       if [ -t 1 -a -x "$PV" ]; then
-        $LOCALCMD send -i $LOCALFS@$SNAP1 $LOCALFS@$SNAP2 | $PV | $REMOTECMD receive -F $REMOTEFS
+        $LOCALCMD send $SENDARGS -i $LOCALFS@$SNAP1 $LOCALFS@$SNAP2 | $PV | $REMOTECMD receive -F $REMOTEFS
       else
-        $LOCALCMD send -i $LOCALFS@$SNAP1 $LOCALFS@$SNAP2 | $REMOTECMD receive -F $REMOTEFS
+        $LOCALCMD send $SENDARGS -i $LOCALFS@$SNAP1 $LOCALFS@$SNAP2 | $REMOTECMD receive -F $REMOTEFS
       fi
       SNAP1=$SNAP2
     done
@@ -95,11 +97,11 @@ else
   LSNAP=${LSNAP##*@}
   if [ -t 1 ]; then
     echo now syncing $LOCALFS
-    $LOCALCMD send -nv $LOCALFS@$LSNAP
+    $LOCALCMD send $SENDARGS -nv $LOCALFS@$LSNAP
   fi
   if [ -t 1 -a -x "$PV" ]; then
-    $LOCALCMD send $LOCALFS@$LSNAP | $PV | $REMOTECMD receive $REMOTEFS
+    $LOCALCMD send $SENDARGS $LOCALFS@$LSNAP | $PV | $REMOTECMD receive $REMOTEFS
   else
-    $LOCALCMD send $LOCALFS@$LSNAP | $REMOTECMD receive $REMOTEFS
+    $LOCALCMD send $SENDARGS $LOCALFS@$LSNAP | $REMOTECMD receive $REMOTEFS
   fi
 fi
