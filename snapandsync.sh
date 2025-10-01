@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 ZFS=/sbin/zfs
 
@@ -20,7 +21,5 @@ if ! $ZFS list -H $TANK > /dev/null 2> /dev/null; then
   exit 1
 fi
 
-if $DIR/snap.sh $1; then
-  $DIR/sync.sh $1
-fi
-
+$DIR/snap.sh $1
+$DIR/sync.sh $1
