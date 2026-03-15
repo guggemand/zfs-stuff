@@ -2,8 +2,8 @@
 
 set -e
 
-ZFS=/sbin/zfs
-DATE=$(command -v date)
+ZFS=${ZFS:-/sbin/zfs}
+DATE=${DATE:-$(command -v date)}
 
 if [ -z "$1" ]; then
   echo "Usage: $0 FileSystem" >&2

@@ -15,8 +15,8 @@ set -e
 #  zfs set dlx.dk.sync:sendargs="-w" local/fs
 #
 
-LOCALCMD=/sbin/zfs
-PV=$(command -v pv)
+LOCALCMD=${LOCALCMD:-/sbin/zfs}
+PV=${PV:-$(command -v pv)}
 
 if [ -z "$1" ]; then
   echo "Usage: $0 FileSystem" >&2

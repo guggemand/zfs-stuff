@@ -2,7 +2,7 @@
 
 set -e
 
-ZFS=/sbin/zfs
+ZFS=${ZFS:-/sbin/zfs}
 
 if [ ! -x "$ZFS" ]; then
   echo "zfs binary is missing!" >&2

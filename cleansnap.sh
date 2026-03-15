@@ -6,7 +6,7 @@ if [ -z "$5" ]; then
   exit 1
 fi
 
-export ZFS=/sbin/zfs
+export ZFS=${ZFS:-/sbin/zfs}
 export FS=$1
 export DAYS=$2
 export WEEKS=$3
@@ -14,28 +14,30 @@ export MONTHS=$4
 export YEARS=$5
 export JUSTDOIT=$6
 
-case $(uname) in
-  SunOS)
-    DATE=/usr/gnu/bin/date
-    BASH=/usr/bin/bash
-    ;;
-  Linux)
-    DATE=/bin/date
-    BASH=/bin/bash
-    ;;
-  FreeBSD)
-    DATE=/usr/local/bin/gdate
-    BASH=/usr/local/bin/bash
-    if [ ! -x "$DATE" ]; then
-      echo "$DATE not found, install /usr/ports/sysutils/coreutils" >&2
-      exit 2
-    fi
-    if [ ! -x "$BASH" ]; then
-      echo "$BASH not found, install /usr/ports/shells/bash" >&2
-      exit 2
-    fi
-    ;;
-esac
+if [ -z "$DATE" ] || [ -z "$BASH" ]; then
+  case $(uname) in
+    SunOS)
+      DATE=${DATE:-/usr/gnu/bin/date}
+      BASH=${BASH:-/usr/bin/bash}
+      ;;
+    Linux)
+      DATE=${DATE:-/bin/date}
+      BASH=${BASH:-/bin/bash}
+      ;;
+    FreeBSD)
+      DATE=${DATE:-/usr/local/bin/gdate}
+      BASH=${BASH:-/usr/local/bin/bash}
+      if [ ! -x "$DATE" ]; then
+        echo "$DATE not found, install /usr/ports/sysutils/coreutils" >&2
+        exit 2
+      fi
+      if [ ! -x "$BASH" ]; then
+        echo "$BASH not found, install /usr/ports/shells/bash" >&2
+        exit 2
+      fi
+      ;;
+  esac
+fi
 
 export DATE
 

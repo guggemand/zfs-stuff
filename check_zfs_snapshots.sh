@@ -9,7 +9,7 @@ fi
 
 NOW=$(date +%s)
 DEFMAXDIFF=$(($1*60))
-ZFS=/sbin/zfs
+ZFS=${ZFS:-/sbin/zfs}
 
 shift
 
