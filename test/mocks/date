@@ -1,0 +1,53 @@
+#!/bin/bash
+#
+# Mock date command for testing.
+# Wraps gdate but anchors relative date calculations to FAKE_NOW.
+#
+# FAKE_NOW must be set to a date string like "2025-01-15 12:00:00"
+#
+
+GDATE=$(command -v gdate || command -v date)
+
+if [ -z "$FAKE_NOW" ]; then
+  exec "$GDATE" "$@"
+fi
+
+FAKE_DATE="${FAKE_NOW%% *}"
+
+# Check if -d flag is present
+has_d=0
+for arg in "$@"; do
+  if [ "$arg" = "-d" ]; then
+    has_d=1
+    break
+  fi
+done
+
+if [ $has_d -eq 0 ]; then
+  # No -d flag: anchor to FAKE_NOW (e.g., "date +%s" or "date +%Y-%m-01")
+  exec "$GDATE" -d "$FAKE_NOW" "$@"
+fi
+
+# Rewrite -d arguments: only prepend FAKE_DATE if the value is relative
+# (i.e., does NOT start with a digit, meaning it's not an absolute date)
+args=()
+prev_was_d=0
+for arg in "$@"; do
+  if [ $prev_was_d -eq 1 ]; then
+    prev_was_d=0
+    if [[ "$arg" =~ ^[0-9]{4}- ]]; then
+      # Absolute date like "2025-01-01 -1 month" -- pass through as-is
+      args+=("$arg")
+    else
+      # Relative date like "3 days ago 00:00" -- anchor to FAKE_DATE
+      args+=("$FAKE_DATE $arg")
+    fi
+  elif [ "$arg" = "-d" ]; then
+    prev_was_d=1
+    args+=("$arg")
+  else
+    args+=("$arg")
+  fi
+done
+
+exec "$GDATE" "${args[@]}"
