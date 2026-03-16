@@ -155,7 +155,10 @@ teardown() {
   [ "$status" -eq 0 ]
   # Verify "rm" was never executed -- only zfs was called
   grep -q "zfs receive" "$MOCK_ZFS_LOG"
-  ! grep -q "rm" "$MOCK_ZFS_LOG"
+  if grep -q "rm" "$MOCK_ZFS_LOG"; then
+    echo "Injected 'rm' command was executed" >&2
+    return 1
+  fi
 }
 
 @test "pipe injection after list is harmless -- extra args silently dropped" {
@@ -167,7 +170,10 @@ teardown() {
   [ "$status" -eq 0 ]
   # Verify only the zfs list command was executed, not "cat /etc/passwd"
   grep -q "zfs list" "$MOCK_ZFS_LOG"
-  ! grep -q "cat" "$MOCK_ZFS_LOG"
+  if grep -q "cat" "$MOCK_ZFS_LOG"; then
+    echo "Injected 'cat' command was executed" >&2
+    return 1
+  fi
 }
 
 # --- Glob safety (set -f) ---

@@ -63,8 +63,22 @@ local_log_contains() {
   grep -q "$1" "$MOCK_ZFS_LOG"
 }
 
+local_log_not_contains() {
+  if grep -q "$1" "$MOCK_ZFS_LOG"; then
+    echo "Expected '$1' to NOT appear in local log, but it did" >&2
+    return 1
+  fi
+}
+
 remote_log_contains() {
   grep -q "$1" "$MOCK_REMOTE_LOG"
+}
+
+remote_log_not_contains() {
+  if grep -q "$1" "$MOCK_REMOTE_LOG"; then
+    echo "Expected '$1' to NOT appear in remote log, but it did" >&2
+    return 1
+  fi
 }
 
 # --- Argument validation ---
@@ -163,8 +177,8 @@ remote_log_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  ! local_log_contains "send"
-  ! remote_log_contains "receive"
+  local_log_not_contains "send"
+  remote_log_not_contains "receive"
 }
 
 # --- Snapshot name ordering vs creation time ---
@@ -209,8 +223,8 @@ remote_log_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  ! local_log_contains "send"
-  ! remote_log_contains "receive"
+  local_log_not_contains "send"
+  remote_log_not_contains "receive"
 }
 
 # --- Running lock lifecycle ---

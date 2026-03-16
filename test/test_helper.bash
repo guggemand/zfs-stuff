@@ -45,6 +45,16 @@ was_destroyed() {
   grep -q "zfs destroy.*$1" "$MOCK_ZFS_LOG"
 }
 
+# Helper: assert a snapshot was NOT destroyed
+# NOTE: Do not use "! was_destroyed" -- the ! prefix suppresses errexit in bash,
+# so the assertion silently passes even when it should fail.
+was_not_destroyed() {
+  if grep -q "zfs destroy.*$1" "$MOCK_ZFS_LOG"; then
+    echo "Expected $1 to NOT be destroyed, but it was" >&2
+    return 1
+  fi
+}
+
 # Helper: check if a snapshot was destroyed with the -d (deferred) flag
 was_destroyed_deferred() {
   grep -q "zfs destroy -d.*$1" "$MOCK_ZFS_LOG"

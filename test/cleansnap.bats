@@ -36,7 +36,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
-  ! was_destroyed "snap-recent"
+  was_not_destroyed "snap-recent"
 }
 
 @test "always keeps the newest snapshot" {
@@ -49,7 +49,7 @@ load test_helper
   # Both are old, but newest must be kept. Only 1 of 2 deleted = 50%, allowed.
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
-  ! was_destroyed "snap-2"
+  was_not_destroyed "snap-2"
   was_destroyed "snap-1"
 }
 
@@ -92,9 +92,9 @@ load test_helper
   [ "$status" -eq 0 ]
 
   # Days 15,14,13 should be kept (3 daily + 24h keeps 15)
-  ! was_destroyed "snap-jan15"
-  ! was_destroyed "snap-jan14"
-  ! was_destroyed "snap-jan13"
+  was_not_destroyed "snap-jan15"
+  was_not_destroyed "snap-jan14"
+  was_not_destroyed "snap-jan13"
 
   # Day 11 (4 days ago) should be deleted
   was_destroyed "snap-jan11"
@@ -115,7 +115,7 @@ load test_helper
   [ "$status" -eq 0 ]
 
   # week0 (today) kept by 24h/daily, week1 and week2 kept by weekly
-  ! was_destroyed "snap-week0"
+  was_not_destroyed "snap-week0"
 }
 
 # --- Monthly retention ---
@@ -136,9 +136,9 @@ load test_helper
   run "$CLEANSNAP" tank/data 1 0 3 0
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-month0"
-  ! was_destroyed "snap-month1"
-  ! was_destroyed "snap-month2"
+  was_not_destroyed "snap-month0"
+  was_not_destroyed "snap-month1"
+  was_not_destroyed "snap-month2"
   was_destroyed "snap-month3"
 }
 
@@ -158,8 +158,8 @@ load test_helper
   run "$CLEANSNAP" tank/data 1 0 0 2
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-year0"
-  ! was_destroyed "snap-year1"
+  was_not_destroyed "snap-year0"
+  was_not_destroyed "snap-year1"
   was_destroyed "snap-year2"
 }
 
@@ -194,8 +194,8 @@ load test_helper
   [ "$status" -eq 0 ]
 
   # snap-15 and snap-14 kept as snapshots (daily + 24h)
-  ! was_destroyed "snap-15"
-  ! was_destroyed "snap-14"
+  was_not_destroyed "snap-15"
+  was_not_destroyed "snap-14"
 }
 
 # --- Duplicate creation time ---
@@ -228,9 +228,9 @@ load test_helper
   run "$CLEANSNAP" tank/data 3 0 0 0
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-mar31"
-  ! was_destroyed "snap-mar30"
-  ! was_destroyed "snap-mar29"
+  was_not_destroyed "snap-mar31"
+  was_not_destroyed "snap-mar30"
+  was_not_destroyed "snap-mar29"
   was_destroyed "snap-mar28"
 }
 
@@ -247,9 +247,9 @@ load test_helper
   run "$CLEANSNAP" tank/data 3 0 0 0
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-oct27"
-  ! was_destroyed "snap-oct26"
-  ! was_destroyed "snap-oct25"
+  was_not_destroyed "snap-oct27"
+  was_not_destroyed "snap-oct26"
+  was_not_destroyed "snap-oct25"
   was_destroyed "snap-oct24"
 }
 
@@ -267,8 +267,8 @@ load test_helper
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-kept"
-  ! was_destroyed "snap-newest"
+  was_not_destroyed "snap-kept"
+  was_not_destroyed "snap-newest"
 }
 
 @test "24h keep window drops snapshot beyond 86400 real seconds during fall back" {
@@ -290,7 +290,7 @@ load test_helper
   # Even though it's outside the 24h epoch window, the daily retention
   # for "0 days ago 00:00" (midnight Oct 26) picks up snap-newest,
   # and snap-borderline is NOT picked up by any daily bucket → deleted
-  ! was_destroyed "snap-newest"
+  was_not_destroyed "snap-newest"
   was_destroyed "snap-borderline"
 }
 
@@ -312,11 +312,11 @@ load test_helper
   run "$CLEANSNAP" tank/data 3 2 0 0
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-jan15"
-  ! was_destroyed "snap-jan14"
-  ! was_destroyed "snap-jan13"
-  ! was_destroyed "snap-jan09"   # saved by weekly
-  ! was_destroyed "snap-jan02"   # saved by weekly
+  was_not_destroyed "snap-jan15"
+  was_not_destroyed "snap-jan14"
+  was_not_destroyed "snap-jan13"
+  was_not_destroyed "snap-jan09"   # saved by weekly
+  was_not_destroyed "snap-jan02"   # saved by weekly
   was_destroyed "snap-dec25"     # not covered by any policy
 }
 
@@ -332,11 +332,11 @@ load test_helper
   run "$CLEANSNAP" tank/data 3 1 1 1
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-today"
-  ! was_destroyed "snap-3d"
-  ! was_destroyed "snap-1w"
-  ! was_destroyed "snap-1m"
-  ! was_destroyed "snap-1y"
+  was_not_destroyed "snap-today"
+  was_not_destroyed "snap-3d"
+  was_not_destroyed "snap-1w"
+  was_not_destroyed "snap-1m"
+  was_not_destroyed "snap-1y"
   was_destroyed "snap-old"
 }
 
@@ -350,9 +350,9 @@ load test_helper
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-a"
-  ! was_destroyed "snap-b"
-  ! was_destroyed "snap-c"
+  was_not_destroyed "snap-a"
+  was_not_destroyed "snap-b"
+  was_not_destroyed "snap-c"
 }
 
 # --- Single snapshot ---
@@ -363,7 +363,7 @@ load test_helper
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
 
-  ! was_destroyed "snap-only"
+  was_not_destroyed "snap-only"
 }
 
 # --- Destroy flags ---
@@ -407,7 +407,7 @@ load test_helper
   [ "$status" -eq 0 ]
 
   # The 3-day-ago bookmark is within the bookmark window → kept
-  ! was_destroyed "snap-3dago"
+  was_not_destroyed "snap-3dago"
   # The very old bookmark is outside all windows → deleted
   was_destroyed "snap-veryold"
 }
