@@ -70,6 +70,14 @@ was_bookmarked() {
   grep -q "zfs bookmark.*$1" "$MOCK_ZFS_LOG"
 }
 
+# Helper: assert cleansnap actually ran (zfs commands appear in log)
+cleansnap_ran() {
+  if ! grep -q "zfs list" "$MOCK_ZFS_LOG"; then
+    echo "cleansnap.sh did not run -- no zfs commands in log" >&2
+    return 1
+  fi
+}
+
 # Helper: generate epoch for a date, with optional day offset
 # Usage: epoch "2025-01-15 06:00:00"
 #        epoch_offset "2025-01-15" -3   (3 days earlier)

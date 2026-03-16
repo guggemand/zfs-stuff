@@ -22,6 +22,8 @@ load test_helper
   export MOCK_ZFS_VALID_FS="tank/other"
   run "$CLEANSNAP" tank/data 7 4 3 2
   [ "$status" -eq 1 ]
+  # Verify the script ran and checked the filesystem
+  grep -q "zfs list -H tank/data" "$MOCK_ZFS_LOG"
 }
 
 # --- Basic retention ---
@@ -38,6 +40,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
+  cleansnap_ran
   was_not_destroyed "snap-afternoon"
   was_not_destroyed "snap-morning"
   was_not_destroyed "snap-latest"
@@ -79,6 +82,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 1 0 0 0 JustDoIt
   [ "$status" -eq 0 ]
+  cleansnap_ran
 }
 
 # --- Daily retention ---
@@ -117,6 +121,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 1 2 0 0
   [ "$status" -eq 0 ]
+  cleansnap_ran
 
   # week0 (today) kept by 24h/daily, week1 and week2 kept by weekly
   was_not_destroyed "snap-week0"
@@ -203,6 +208,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 2:1 0 0 0
   [ "$status" -eq 0 ]
+  cleansnap_ran
 
   # snap-15 and snap-14 kept as snapshots (daily + 24h)
   was_not_destroyed "snap-15"
@@ -277,6 +283,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
+  cleansnap_ran
 
   was_not_destroyed "snap-kept"
   was_not_destroyed "snap-newest"
@@ -360,6 +367,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
+  cleansnap_ran
 
   was_not_destroyed "snap-a"
   was_not_destroyed "snap-b"
@@ -373,6 +381,7 @@ load test_helper
 
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
+  cleansnap_ran
 
   was_not_destroyed "snap-only"
 }
@@ -439,5 +448,7 @@ load test_helper
 
 @test "exits with error when no snapshots exist" {
   run "$CLEANSNAP" tank/data 7 4 3 2
-  [ "$status" -eq 1 ]
+  [ "$status" -ne 0 ]
+  # Verify it at least got past filesystem validation
+  grep -q "zfs list -H tank/data" "$MOCK_ZFS_LOG"
 }

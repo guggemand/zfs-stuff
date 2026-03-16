@@ -53,18 +53,21 @@ teardown() {
   export SSH_ORIGINAL_COMMAND="pigz -d | zfs receive tank/backup"
   run "$AUTH_SCRIPT" </dev/null
   [ "$status" -eq 0 ]
+  grep -q "zfs receive" "$MOCK_ZFS_LOG"
 }
 
 @test "allows pigz prefix with zfs receive -F" {
   export SSH_ORIGINAL_COMMAND="pigz -d | zfs receive -F tank/backup"
   run "$AUTH_SCRIPT" </dev/null
   [ "$status" -eq 0 ]
+  grep -q "zfs receive -F" "$MOCK_ZFS_LOG"
 }
 
 @test "allows pigz prefix with zfs list" {
   export SSH_ORIGINAL_COMMAND="pigz -d | zfs list -t snapshot -s creation -o name -rH tank/data"
   run "$AUTH_SCRIPT"
   [ "$status" -eq 0 ]
+  grep -q "zfs list" "$MOCK_ZFS_LOG"
 }
 
 # --- Denied: wrong zfs subcommands ---

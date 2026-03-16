@@ -177,6 +177,8 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
+  # Verify the script actually ran (set the lock, listed snapshots)
+  local_log_contains "set dlx.dk.sync:running=1"
   local_log_not_contains "zfs send"
   remote_log_not_contains "remote_zfs receive"
 }
@@ -223,6 +225,8 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
+  # Verify the script actually ran
+  local_log_contains "set dlx.dk.sync:running=1"
   local_log_not_contains "zfs send"
   remote_log_not_contains "remote_zfs receive"
 }

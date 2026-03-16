@@ -117,6 +117,8 @@ sync_count() {
 
   run "$TEST_TMPDIR/syncall.sh"
   [ "$status" -eq 0 ]
+  # Verify sync.sh was actually called
+  [ "$(sync_count)" -eq 2 ]
 }
 
 # --- A sync fails but remaining filesystems still run ---
@@ -144,6 +146,8 @@ sync_count() {
   run "$TEST_TMPDIR/syncall.sh"
   [ "$status" -eq 0 ]
   [ "$(sync_count)" -eq 0 ]
+  # Verify the script ran (called zfs get)
+  grep -q "zfs get" "$MOCK_ZFS_LOG"
 }
 
 # --- Correct zfs get invocation ---
