@@ -14,7 +14,7 @@ setup() {
   export MOCK_ZFS_VALID_FS="tank/data"
   export ZFS="$MOCK_DIR/zfs"
   export DATE="$MOCK_DIR/date"
-  export BASH=/bin/bash
+  export BASH=$(command -v bash)
   export FAKE_NOW="2025-01-15 12:00:00"
   touch "$MOCK_ZFS_LOG"
 }
