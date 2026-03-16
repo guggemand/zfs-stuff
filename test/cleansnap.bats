@@ -181,8 +181,15 @@ load test_helper
   run "$CLEANSNAP" tank/data 2:2 0 0 0
   [ "$status" -eq 0 ]
 
-  # Check that bookmark commands were logged for the bookmark-window snapshots
+  # Check that bookmark commands were logged with correct name conversion (@ → #)
   grep -q "zfs bookmark" "$MOCK_ZFS_LOG"
+  # Verify the bookmark name uses # instead of @ (e.g., tank/data@snap-13 → tank/data#snap-13)
+  if grep "zfs bookmark" "$MOCK_ZFS_LOG" | grep -q '@.*#'; then
+    true
+  else
+    echo "Bookmark command missing correct @ to # conversion" >&2
+    return 1
+  fi
 }
 
 @test "bookmark retention does not bookmark already-kept snapshots" {
