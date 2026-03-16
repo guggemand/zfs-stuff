@@ -197,3 +197,18 @@ add_snap() {
   [ "$status" -eq 0 ]
   [[ "$output" == "OK:"* ]]
 }
+
+@test "uses creation time not name to find newest snapshot" {
+  # snap-alpha is alphabetically first but newest by creation time (10 min ago)
+  # snap-zebra is alphabetically last but oldest by creation time (2 hours ago)
+  T_OLD=$(( FAKE_NOW_EPOCH - 7200 ))
+  T_NEW=$(( FAKE_NOW_EPOCH - 600 ))
+  add_snap "tank/data@snap-zebra" "$T_OLD"
+  add_snap "tank/data@snap-alpha" "$T_NEW"
+
+  # Threshold 60 min. snap-alpha (10 min) is newest by creation → OK
+  # If sorted by name, snap-zebra (2h old) would be "newest" → CRITICAL
+  run "$CHECK_SCRIPT" 60 tank/data
+  [ "$status" -eq 0 ]
+  [[ "$output" == "OK:"* ]]
+}

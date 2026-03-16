@@ -167,6 +167,52 @@ remote_log_contains() {
   ! remote_log_contains "receive"
 }
 
+# --- Snapshot name ordering vs creation time ---
+
+@test "initial sync uses oldest snapshot by creation time not by name" {
+  # Names sort alphabetically as z, a, m -- but creation times are 1000, 2000, 3000
+  add_local_snap "tank/data@z-first-alpha" "1000"
+  add_local_snap "tank/data@a-last-alpha" "2000"
+  add_local_snap "tank/data@m-mid-alpha" "3000"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  # Should send z-first-alpha (oldest by creation), not a-last-alpha (first alphabetically)
+  local_log_contains "send.*tank/data@z-first-alpha"
+}
+
+@test "incremental sync follows creation time order not name order" {
+  # Added in non-chronological order, names don't sort the same as timestamps
+  add_local_snap "tank/data@snap-charlie" "3000"
+  add_local_snap "tank/data@snap-alpha" "1000"
+  add_local_snap "tank/data@snap-bravo" "2000"
+
+  add_remote_snap "backup/data@snap-alpha" "1000"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  # Mock sorts by creation time, so order should be: alpha(1000) -> bravo(2000) -> charlie(3000)
+  local_log_contains "send.*-i tank/data@snap-alpha tank/data@snap-bravo"
+  local_log_contains "send.*-i tank/data@snap-bravo tank/data@snap-charlie"
+}
+
+@test "already in sync detected by creation time not name" {
+  # Newest by creation time is snap-alpha (3000), not snap-zulu (1000)
+  add_local_snap "tank/data@snap-zulu" "1000"
+  add_local_snap "tank/data@snap-alpha" "3000"
+
+  # Remote has snap-alpha -- should be considered in sync
+  add_remote_snap "backup/data@snap-alpha" "3000"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  ! local_log_contains "send"
+  ! remote_log_contains "receive"
+}
+
 # --- Running lock lifecycle ---
 
 @test "sets running lock before sync and clears it after" {
