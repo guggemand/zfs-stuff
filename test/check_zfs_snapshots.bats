@@ -65,6 +65,7 @@ add_snap() {
 
   run "$CHECK_SCRIPT" 60 tank/data
   [ "$status" -eq 0 ]
+  [[ "$output" == "OK:"* ]]
   [[ "$output" == *"| tank/data="* ]]
 }
 
@@ -137,6 +138,8 @@ add_snap() {
   run "$CHECK_SCRIPT" 60 tank/data tank/logs
   [ "$status" -eq 2 ]
   [[ "$output" == *"ERROR:"* ]]
+  # Verify the stale filesystem is flagged, not the fresh one
+  [[ "$output" == *"tank/logs@"* ]]
 }
 
 @test "mixed per-filesystem thresholds" {

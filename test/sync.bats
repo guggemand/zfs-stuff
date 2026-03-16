@@ -115,9 +115,14 @@ remote_log_not_contains() {
 # --- Lock detection ---
 
 @test "exits 2 when sync is already running" {
+  # Add snapshots so the script would succeed if not for the running check
+  add_local_snap "tank/data@snap1" "1000"
+  add_remote_snap "backup/data@snap1" "1000"
   export MOCK_ZFS_PROP_RUNNING="1"
   run "$SYNC" tank/data
   [ "$status" -eq 2 ]
+  # Verify it stopped before listing snapshots
+  local_log_not_contains "zfs list -t snapshot"
 }
 
 # --- Snapshot validation ---
@@ -169,10 +174,12 @@ remote_log_not_contains() {
 }
 
 @test "already in sync does nothing and exits 0" {
+  # Use 3 snapshots so bypassing the != check would produce actual sends
   add_local_snap "tank/data@snap1" "1000"
   add_local_snap "tank/data@snap2" "2000"
+  add_local_snap "tank/data@snap3" "3000"
 
-  add_remote_snap "backup/data@snap2" "2000"
+  add_remote_snap "backup/data@snap3" "3000"
 
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
@@ -216,7 +223,9 @@ remote_log_not_contains() {
 
 @test "already in sync detected by creation time not name" {
   # Newest by creation time is snap-alpha (3000), not snap-zulu (1000)
+  # 3 snapshots so bypassing != check would produce sends
   add_local_snap "tank/data@snap-zulu" "1000"
+  add_local_snap "tank/data@snap-mike" "2000"
   add_local_snap "tank/data@snap-alpha" "3000"
 
   # Remote has snap-alpha -- should be considered in sync

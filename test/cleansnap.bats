@@ -22,8 +22,12 @@ load test_helper
   export MOCK_ZFS_VALID_FS="tank/other"
   run "$CLEANSNAP" tank/data 7 4 3 2
   [ "$status" -eq 1 ]
-  # Verify the script ran and checked the filesystem
+  # Verify it checked the filesystem but stopped before listing snapshots
   grep -q "zfs list -H tank/data" "$MOCK_ZFS_LOG"
+  if grep -q "name,creation" "$MOCK_ZFS_LOG"; then
+    echo "Script continued past filesystem validation" >&2
+    return 1
+  fi
 }
 
 # --- Basic retention ---
@@ -123,8 +127,12 @@ load test_helper
   [ "$status" -eq 0 ]
   cleansnap_ran
 
-  # week0 (today) kept by 24h/daily, week1 and week2 kept by weekly
+  # week0 (today) kept by 24h/daily
   was_not_destroyed "snap-week0"
+  # week1 is only kept by weekly retention (outside daily/24h window)
+  was_not_destroyed "snap-week1"
+  # week3 (4 weeks ago) is outside the 2-week window
+  was_destroyed "snap-week3"
 }
 
 # --- Monthly retention ---
@@ -449,6 +457,7 @@ load test_helper
 @test "exits with error when no snapshots exist" {
   run "$CLEANSNAP" tank/data 7 4 3 2
   [ "$status" -ne 0 ]
-  # Verify it at least got past filesystem validation
+  # Verify it got past filesystem validation and attempted to list snapshots
   grep -q "zfs list -H tank/data" "$MOCK_ZFS_LOG"
+  grep -q "name,creation" "$MOCK_ZFS_LOG"
 }

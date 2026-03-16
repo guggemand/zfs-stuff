@@ -88,5 +88,7 @@ epoch() {
 epoch_offset() {
   local base="$1"
   local days="$2"
-  $(command -v gdate || command -v date) -d "$base ${days} days" +%s
+  # Use "X days ago" syntax -- negative offset becomes positive "ago"
+  local abs_days=${days#-}
+  $(command -v gdate || command -v date) -d "$base ${abs_days} days ago" +%s
 }
