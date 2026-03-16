@@ -177,8 +177,8 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  local_log_not_contains "send"
-  remote_log_not_contains "receive"
+  local_log_not_contains "zfs send"
+  remote_log_not_contains "remote_zfs receive"
 }
 
 # --- Snapshot name ordering vs creation time ---
@@ -223,8 +223,8 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  local_log_not_contains "send"
-  remote_log_not_contains "receive"
+  local_log_not_contains "zfs send"
+  remote_log_not_contains "remote_zfs receive"
 }
 
 # --- Running lock lifecycle ---

@@ -329,7 +329,7 @@ load test_helper
   add_snap "tank/data@snap-1y"       "$(epoch '2024-01-02 06:00:00')"  # yearly
   add_snap "tank/data@snap-old"      "$(epoch '2022-06-01 06:00:00')"  # nothing
 
-  run "$CLEANSNAP" tank/data 3 1 1 1
+  run "$CLEANSNAP" tank/data 3 1 2 2
   [ "$status" -eq 0 ]
 
   was_not_destroyed "snap-today"
