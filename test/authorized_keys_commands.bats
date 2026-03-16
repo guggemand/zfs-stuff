@@ -179,11 +179,14 @@ teardown() {
 # --- Glob safety (set -f) ---
 
 @test "glob characters in filesystem name are not expanded" {
+  # Create files matching "tank/*" so the glob would expand without set -f
+  mkdir -p "$TEST_TMPDIR/tank"
+  touch "$TEST_TMPDIR/tank/vol1" "$TEST_TMPDIR/tank/vol2"
+
   export SSH_ORIGINAL_COMMAND="zfs receive tank/*"
-  run "$AUTH_SCRIPT"
-  # Should succeed because "receive tank/*" matches the receive pattern,
-  # and set -f prevents * from being expanded
+  # Run from the temp dir so the glob could match real files
+  run bash -c "cd $TEST_TMPDIR && $AUTH_SCRIPT"
   [ "$status" -eq 0 ]
-  # Verify the literal * was passed to zfs, not expanded
+  # Verify the literal * was passed to zfs, not expanded to "tank/vol1 tank/vol2"
   grep -q 'zfs receive tank/\*' "$MOCK_ZFS_LOG"
 }
