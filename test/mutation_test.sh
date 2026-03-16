@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/bash
+#!/usr/bin/env bash
 #
 # Mutation test: for each test, break the specific code it tests and verify it fails.
 #
@@ -136,22 +136,22 @@ mutate_and_test "$CS" "pmut 's/\\[ -z \"\\\$SNAP\" \\]/false/' $CS" \
 mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
   "error output includes the stale snapshot name" "$CST"
 
-# Per-fs threshold: use sed with a literal match instead of perl
-mutate_and_test "$CS" "sed -i '' '/i##/s/MAXDIFF=.*/MAXDIFF=\$DEFMAXDIFF/' $CS" \
+# Per-fs threshold
+mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=\\\$DEFMAXDIFF/' $CS" \
   "per-filesystem threshold overrides default" "$CST"
-mutate_and_test "$CS" "sed -i '' '/i##/s/MAXDIFF=.*/MAXDIFF=\$DEFMAXDIFF/' $CS" \
+mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=\\\$DEFMAXDIFF/' $CS" \
   "per-filesystem threshold allows longer window" "$CST"
 mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
   "OK when all filesystems are within threshold" "$CST"
 mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
   "CRITICAL when one filesystem exceeds threshold" "$CST"
-mutate_and_test "$CS" "sed -i '' '/i##/s/MAXDIFF=.*/MAXDIFF=\$DEFMAXDIFF/' $CS" \
+mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=\\\$DEFMAXDIFF/' $CS" \
   "mixed per-filesystem thresholds" "$CST"
 mutate_and_test "$CS" "pmut 's/PERFDATA=\"\\\$PERFDATA \\\$FS/PERFDATA=\"BROKEN/' $CS" \
   "perfdata contains all filesystems" "$CST"
-mutate_and_test "$CS" "sed -i '' 's/DEFMAXDIFF=.*/DEFMAXDIFF=999999/' $CS" \
+mutate_and_test "$CS" "pmut 's/DEFMAXDIFF=.*/DEFMAXDIFF=999999/' $CS" \
   "perfdata includes threshold value" "$CST"
-mutate_and_test "$CS" "sed -i '' '/i##/s/MAXDIFF=.*/MAXDIFF=99999/' $CS" \
+mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=99999/' $CS" \
   "perfdata uses per-filesystem threshold when set" "$CST"
 mutate_and_test "$CS" "pmut 's/tail -n 1/head -n 1/' $CS" \
   "uses newest snapshot for comparison" "$CST"
