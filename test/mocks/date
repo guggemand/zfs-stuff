@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Mock date command for testing.
 # Wraps gdate but anchors relative date calculations to FAKE_NOW.
