@@ -27,16 +27,20 @@ load test_helper
 # --- Basic retention ---
 
 @test "keeps snapshots from the last 24 hours" {
-  # FAKE_NOW is 2025-01-15 12:00:00
-  RECENT=$(epoch "2025-01-15 08:00:00")   # 4 hours ago
-  OLD=$(epoch "2025-01-14 00:00:00")      # 36 hours ago
-
-  add_snap "tank/data@snap-old" "$OLD"
-  add_snap "tank/data@snap-recent" "$RECENT"
+  # FAKE_NOW is 2025-01-15 12:00:00, 1 daily retention.
+  # Daily picks the first snap on/after midnight today (snap-morning).
+  # snap-afternoon is within 24h but NOT covered by daily or newest --
+  # only the 24h rule should save it.
+  add_snap "tank/data@snap-old"       "$(epoch '2025-01-14 00:00:00')"  # 36h ago
+  add_snap "tank/data@snap-morning"   "$(epoch '2025-01-15 06:00:00')"  # 6h ago, kept by daily
+  add_snap "tank/data@snap-afternoon" "$(epoch '2025-01-15 10:00:00')"  # 2h ago, kept ONLY by 24h rule
+  add_snap "tank/data@snap-latest"    "$(epoch '2025-01-15 11:00:00')"  # 1h ago, kept as newest
 
   run "$CLEANSNAP" tank/data 1 0 0 0
   [ "$status" -eq 0 ]
-  was_not_destroyed "snap-recent"
+  was_not_destroyed "snap-afternoon"
+  was_not_destroyed "snap-morning"
+  was_not_destroyed "snap-latest"
 }
 
 @test "always keeps the newest snapshot" {
