@@ -125,27 +125,27 @@ mutate_and_test "$CS" "pmut 's/\\[ -z \"\\\$1\" \\] \\|\\| \\[ -z \"\\\$2\" \\]/
   "exits with error when no arguments given" "$CST"
 mutate_and_test "$CS" "pmut 's/\\[ -z \"\\\$1\" \\] \\|\\| \\[ -z \"\\\$2\" \\]/false/' $CS" \
   "exits with error when only threshold given" "$CST"
-mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
+mutate_and_test "$CS" "pmut 's/-gt \"/-lt \"/' $CS" \
   "exits 0 when snapshot is within threshold" "$CST"
 mutate_and_test "$CS" "pmut 's/echo \"OK:/echo \"BROKEN:/' $CS" \
   "outputs OK message with perfdata" "$CST"
-mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
+mutate_and_test "$CS" "pmut 's/-gt \"/-lt \"/' $CS" \
   "exits 2 when snapshot is older than threshold" "$CST"
 mutate_and_test "$CS" "pmut 's/\\[ -z \"\\\$SNAP\" \\]/false/' $CS" \
   "exits 2 when filesystem does not exist" "$CST"
-mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
+mutate_and_test "$CS" "pmut 's/-gt \"/-lt \"/' $CS" \
   "error output includes the stale snapshot name" "$CST"
 
 # Per-fs threshold
-mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=\\\$DEFMAXDIFF/' $CS" \
+mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=999999/' $CS" \
   "per-filesystem threshold overrides default" "$CST"
-mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=\\\$DEFMAXDIFF/' $CS" \
+mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=1/' $CS" \
   "per-filesystem threshold allows longer window" "$CST"
-mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
+mutate_and_test "$CS" "pmut 's/-gt \"/-lt \"/' $CS" \
   "OK when all filesystems are within threshold" "$CST"
-mutate_and_test "$CS" "pmut 's/-gt \"\\\$MAXDIFF\"/-lt \"\\\$MAXDIFF\"/' $CS" \
+mutate_and_test "$CS" "pmut 's/-gt \"/-lt \"/' $CS" \
   "CRITICAL when one filesystem exceeds threshold" "$CST"
-mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=\\\$DEFMAXDIFF/' $CS" \
+mutate_and_test "$CS" "pmut '/i##/ && s/MAXDIFF=.*/MAXDIFF=999999/' $CS" \
   "mixed per-filesystem thresholds" "$CST"
 mutate_and_test "$CS" "pmut 's/PERFDATA=\"\\\$PERFDATA \\\$FS/PERFDATA=\"BROKEN/' $CS" \
   "perfdata contains all filesystems" "$CST"
