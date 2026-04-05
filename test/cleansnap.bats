@@ -324,25 +324,25 @@ load test_helper
 
 @test "weekly retention saves a snapshot that daily would delete" {
   # FAKE_NOW is 2025-01-15 (Wednesday). 3 daily + 2 weekly.
-  # "1 week ago sunday" = 2025-01-08, "2 weeks ago sunday" = 2025-01-01
+  # "1 week ago sunday" = Sun 2025-01-12, "2 weeks ago sunday" = Sun 2025-01-05
   add_snap "tank/data@snap-jan15" "$(epoch '2025-01-15 06:00:00')"  # today
   add_snap "tank/data@snap-jan14" "$(epoch '2025-01-14 06:00:00')"  # 1 day ago
   add_snap "tank/data@snap-jan13" "$(epoch '2025-01-13 06:00:00')"  # 2 days ago
-  add_snap "tank/data@snap-jan09" "$(epoch '2025-01-09 06:00:00')"  # first snap >= Jan 8
-  add_snap "tank/data@snap-jan02" "$(epoch '2025-01-02 06:00:00')"  # first snap >= Jan 1
+  add_snap "tank/data@snap-jan12" "$(epoch '2025-01-12 06:00:00')"  # first snap >= Jan 12
+  add_snap "tank/data@snap-jan06" "$(epoch '2025-01-06 06:00:00')"  # first snap >= Jan 5
   add_snap "tank/data@snap-dec25" "$(epoch '2024-12-25 06:00:00')"  # outside all windows
 
   # 3 daily keeps jan15,14,13.
-  # weekly 1 ("1 week ago sunday" = Jan 8): first snap >= Jan 8 is jan09 → kept
-  # weekly 2 ("2 weeks ago sunday" = Jan 1): first snap >= Jan 1 is jan02 → kept
+  # weekly 1 ("1 week ago sunday" = Jan 12): first snap >= Jan 12 is jan12 → kept
+  # weekly 2 ("2 weeks ago sunday" = Jan 5):  first snap >= Jan 5 is jan06 → kept
   run "$CLEANSNAP" tank/data 3 2 0 0
   [ "$status" -eq 0 ]
 
   was_not_destroyed "snap-jan15"
   was_not_destroyed "snap-jan14"
   was_not_destroyed "snap-jan13"
-  was_not_destroyed "snap-jan09"   # saved by weekly
-  was_not_destroyed "snap-jan02"   # saved by weekly
+  was_not_destroyed "snap-jan12"   # saved by weekly
+  was_not_destroyed "snap-jan06"   # saved by weekly
   was_destroyed "snap-dec25"     # not covered by any policy
 }
 

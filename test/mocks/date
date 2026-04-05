@@ -28,8 +28,21 @@ if [ $has_d -eq 0 ]; then
   exec "$GDATE" -d "$FAKE_NOW" "$@"
 fi
 
-# Rewrite -d arguments: only prepend FAKE_DATE if the value is relative
-# (i.e., does NOT start with a digit, meaning it's not an absolute date)
+# Day-of-week number lookup (matches gdate %u: 1=Mon .. 7=Sun)
+dow_number() {
+  case "$1" in
+    monday) echo 1 ;; tuesday)  echo 2 ;; wednesday) echo 3 ;;
+    thursday) echo 4 ;; friday) echo 5 ;; saturday)  echo 6 ;;
+    sunday) echo 7 ;;
+  esac
+}
+
+# Rewrite -d arguments: anchor relative dates to FAKE_NOW.
+#
+# Day-of-week tokens (e.g. "sunday", "last saturday") need special handling:
+# GNU date applies day-of-week displacement BEFORE relative items, but when
+# an absolute date is prepended the displacement is silently ignored.  We
+# compute the displacement ourselves and substitute an adjusted absolute date.
 args=()
 prev_was_d=0
 for arg in "$@"; do
@@ -39,8 +52,36 @@ for arg in "$@"; do
       # Absolute date like "2025-01-01 -1 month" -- pass through as-is
       args+=("$arg")
     else
-      # Relative date like "3 days ago 00:00" -- anchor to FAKE_DATE
-      args+=("$FAKE_DATE $arg")
+      # Relative date -- check for day-of-week names
+      DOW=""
+      DOW_MOD=""
+      EXPR="$arg"
+      for day in monday tuesday wednesday thursday friday saturday sunday; do
+        if [[ " $arg " == *" last $day "* ]]; then
+          DOW="$day"; DOW_MOD="last"; EXPR="${arg/last $day/}"; break
+        elif [[ " $arg " == *" next $day "* ]]; then
+          DOW="$day"; DOW_MOD="next"; EXPR="${arg/next $day/}"; break
+        elif [[ " $arg " == *" $day "* ]]; then
+          DOW="$day"; DOW_MOD=""; EXPR="${arg/$day/}"; break
+        fi
+      done
+
+      if [ -n "$DOW" ]; then
+        # Compute forward displacement from FAKE_NOW to the target day.
+        # Bare day: 0 if same day-of-week, 1-6 otherwise (forward).
+        FAKE_DOW=$("$GDATE" -d "$FAKE_NOW" +%u)
+        TARGET_DOW=$(dow_number "$DOW")
+        ADVANCE=$(( (TARGET_DOW - FAKE_DOW + 7) % 7 ))
+        case "$DOW_MOD" in
+          last) ADVANCE=$((ADVANCE - 7)) ;;
+          next) [ $ADVANCE -eq 0 ] && ADVANCE=7 ;;
+        esac
+        ADJ_DATE=$("$GDATE" -d "$FAKE_DATE $ADVANCE days" +%Y-%m-%d)
+        args+=("$ADJ_DATE $EXPR")
+      else
+        # Plain relative expression -- anchor to FAKE_DATE
+        args+=("$FAKE_DATE $EXPR")
+      fi
     fi
   elif [ "$arg" = "-d" ]; then
     prev_was_d=1
