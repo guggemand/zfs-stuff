@@ -10,7 +10,15 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOCK_DIR="$SCRIPT_DIR/test/mocks"
+
+# Paths to the scripts under test
+AUTH_SCRIPT="$SCRIPT_DIR/authorized_keys_commands.sh"
+CHECK_SCRIPT="$SCRIPT_DIR/check_zfs_snapshots.sh"
 CLEANSNAP="$SCRIPT_DIR/cleansnap.sh"
+SENDWITHPIGZ="$SCRIPT_DIR/sendwithpigz.sh"
+SNAP="$SCRIPT_DIR/snap.sh"
+SYNC="$SCRIPT_DIR/sync.sh"
+SYNCALL="$SCRIPT_DIR/syncall.sh"
 
 # Create a per-test tmpdir and initialise the mock zfs log.
 common_setup() {
@@ -51,6 +59,17 @@ add_snap() {
 # Usage: add_bookmark "tank/data#snap-20250101-120000" 1735732800
 add_bookmark() {
   printf '%s\t%s\n' "$1" "$2" >> "$MOCK_ZFS_SNAPSHOTS"
+}
+
+# Generic log assertion: error (with message) if PATTERN matches in FILE.
+# Use this instead of "! grep -q" -- the ! prefix suppresses bash errexit so
+# the assertion silently passes even when it should fail.
+# Usage: log_not_contains <file> <pattern>
+log_not_contains() {
+  if grep -q "$2" "$1"; then
+    echo "Expected '$2' to NOT appear in $1, but it did" >&2
+    return 1
+  fi
 }
 
 # Helper: check if a specific snapshot was destroyed

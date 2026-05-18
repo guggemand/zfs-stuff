@@ -5,7 +5,6 @@ load test_helper
 setup() {
   common_setup
   use_mock_zfs
-  CHECK_SCRIPT="$SCRIPT_DIR/check_zfs_snapshots.sh"
 
   # check_zfs_snapshots.sh calls `date +%s` directly; install a minimal mock
   # on PATH that returns a fixed epoch.

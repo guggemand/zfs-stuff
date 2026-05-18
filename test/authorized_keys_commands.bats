@@ -4,7 +4,6 @@ load test_helper
 
 setup() {
   common_setup
-  AUTH_SCRIPT="$SCRIPT_DIR/authorized_keys_commands.sh"
   export PATH="$MOCK_DIR:$PATH"
   export MOCK_ZFS_ACCEPT_ALL=1
 }

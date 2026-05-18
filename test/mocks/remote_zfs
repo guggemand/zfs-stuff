@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Mock remote zfs command (used by sync.sh tests).
+#
+# Logs each invocation to $MOCK_REMOTE_LOG and serves snapshot lists from
+# $MOCK_REMOTE_SNAPSHOTS (tab-separated name<TAB>creation_epoch).
+#
+echo "remote_zfs $*" >> "$MOCK_REMOTE_LOG"
+case "$1" in
+  list)
+    if [ -f "$MOCK_REMOTE_SNAPSHOTS" ]; then
+      sort -t'	' -k2 -n "$MOCK_REMOTE_SNAPSHOTS" | cut -f1
+    fi
+    exit 0 ;;
+  receive)
+    cat > /dev/null
+    exit 0 ;;
+esac
+echo "mock remote_zfs: unhandled: $*" >&2
+exit 1

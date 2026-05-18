@@ -8,7 +8,6 @@ load test_helper
 
 setup() {
   common_setup
-  SENDWITHPIGZ="$SCRIPT_DIR/sendwithpigz.sh"
   MOCK_BIN="$TEST_TMPDIR/bin"
   mkdir -p "$MOCK_BIN"
 

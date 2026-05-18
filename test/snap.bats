@@ -6,7 +6,6 @@ setup() {
   common_setup
   use_mock_zfs
   use_mock_date
-  SNAP="$SCRIPT_DIR/snap.sh"
   export MOCK_ZFS_ACCEPT_ALL=1
 }
 

@@ -5,7 +5,6 @@ load test_helper
 setup() {
   common_setup
   use_mock_zfs
-  SYNC="$SCRIPT_DIR/sync.sh"
 
   export MOCK_REMOTE_LOG="$TEST_TMPDIR/remote.log"
   touch "$MOCK_REMOTE_LOG"
@@ -14,31 +13,14 @@ setup() {
   export LOCALCMD="$ZFS"
 
   # Per-property defaults for sync.sh
-  export MOCK_ZFS_PROP_REMOTECMD="$TEST_TMPDIR/remote_zfs"
+  export MOCK_ZFS_PROP_REMOTECMD="$MOCK_DIR/remote_zfs"
   export MOCK_ZFS_PROP_REMOTEFS="backup/data"
   export MOCK_ZFS_PROP_SENDARGS="-"
   export MOCK_ZFS_PROP_RUNNING="-"
 
-  # Remote mock -- uses its own snapshot file and log
+  # Remote mock reads snapshots from its own file
   export MOCK_REMOTE_SNAPSHOTS="$TEST_TMPDIR/remote_snapshots.txt"
   touch "$MOCK_REMOTE_SNAPSHOTS"
-  cat > "$TEST_TMPDIR/remote_zfs" <<'MOCK'
-#!/bin/sh
-echo "remote_zfs $*" >> "$MOCK_REMOTE_LOG"
-case "$1" in
-  list)
-    if [ -f "$MOCK_REMOTE_SNAPSHOTS" ]; then
-      sort -t'	' -k2 -n "$MOCK_REMOTE_SNAPSHOTS" | cut -f1
-    fi
-    exit 0 ;;
-  receive)
-    cat > /dev/null
-    exit 0 ;;
-esac
-echo "mock remote_zfs: unhandled: $*" >&2
-exit 1
-MOCK
-  chmod +x "$TEST_TMPDIR/remote_zfs"
 
   export PV="/nonexistent/pv"
 }
@@ -55,28 +37,6 @@ add_local_snap() {
 # Helper: add a remote snapshot (name + epoch)
 add_remote_snap() {
   printf '%s\t%s\n' "$1" "$2" >> "$MOCK_REMOTE_SNAPSHOTS"
-}
-
-local_log_contains() {
-  grep -q "$1" "$MOCK_ZFS_LOG"
-}
-
-local_log_not_contains() {
-  if grep -q "$1" "$MOCK_ZFS_LOG"; then
-    echo "Expected '$1' to NOT appear in local log, but it did" >&2
-    return 1
-  fi
-}
-
-remote_log_contains() {
-  grep -q "$1" "$MOCK_REMOTE_LOG"
-}
-
-remote_log_not_contains() {
-  if grep -q "$1" "$MOCK_REMOTE_LOG"; then
-    echo "Expected '$1' to NOT appear in remote log, but it did" >&2
-    return 1
-  fi
 }
 
 # --- Argument validation ---
@@ -120,7 +80,7 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 2 ]
   # Verify it stopped before listing snapshots
-  local_log_not_contains "zfs list -t snapshot"
+  log_not_contains "$MOCK_ZFS_LOG" "zfs list -t snapshot"
 }
 
 # --- Snapshot validation ---
@@ -152,8 +112,8 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  local_log_contains "send.*tank/data@snap1"
-  remote_log_contains "receive backup/data"
+  grep -q "send.*tank/data@snap1" "$MOCK_ZFS_LOG"
+  grep -q "receive backup/data" "$MOCK_REMOTE_LOG"
 }
 
 @test "incremental sync sends with zfs send -i and receive -F" {
@@ -166,9 +126,9 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  local_log_contains "send.*-i tank/data@snap1 tank/data@snap2"
-  local_log_contains "send.*-i tank/data@snap2 tank/data@snap3"
-  remote_log_contains "receive -F backup/data"
+  grep -q "send.*-i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
+  grep -q "send.*-i tank/data@snap2 tank/data@snap3" "$MOCK_ZFS_LOG"
+  grep -q "receive -F backup/data" "$MOCK_REMOTE_LOG"
 }
 
 @test "already in sync does nothing and exits 0" {
@@ -183,9 +143,9 @@ remote_log_not_contains() {
   [ "$status" -eq 0 ]
 
   # Verify the script actually ran (set the lock, listed snapshots)
-  local_log_contains "set dlx.dk.sync:running=1"
-  local_log_not_contains "zfs send"
-  remote_log_not_contains "remote_zfs receive"
+  grep -q "set dlx.dk.sync:running=1" "$MOCK_ZFS_LOG"
+  log_not_contains "$MOCK_ZFS_LOG" "zfs send"
+  log_not_contains "$MOCK_REMOTE_LOG" "remote_zfs receive"
 }
 
 # --- Snapshot name ordering vs creation time ---
@@ -200,7 +160,7 @@ remote_log_not_contains() {
   [ "$status" -eq 0 ]
 
   # Should send z-first-alpha (oldest by creation), not a-last-alpha (first alphabetically)
-  local_log_contains "send.*tank/data@z-first-alpha"
+  grep -q "send.*tank/data@z-first-alpha" "$MOCK_ZFS_LOG"
 }
 
 @test "incremental sync follows creation time order not name order" {
@@ -215,8 +175,8 @@ remote_log_not_contains() {
   [ "$status" -eq 0 ]
 
   # Mock sorts by creation time, so order should be: alpha(1000) -> bravo(2000) -> charlie(3000)
-  local_log_contains "send.*-i tank/data@snap-alpha tank/data@snap-bravo"
-  local_log_contains "send.*-i tank/data@snap-bravo tank/data@snap-charlie"
+  grep -q "send.*-i tank/data@snap-alpha tank/data@snap-bravo" "$MOCK_ZFS_LOG"
+  grep -q "send.*-i tank/data@snap-bravo tank/data@snap-charlie" "$MOCK_ZFS_LOG"
 }
 
 @test "already in sync detected by creation time not name" {
@@ -233,9 +193,9 @@ remote_log_not_contains() {
   [ "$status" -eq 0 ]
 
   # Verify the script actually ran
-  local_log_contains "set dlx.dk.sync:running=1"
-  local_log_not_contains "zfs send"
-  remote_log_not_contains "remote_zfs receive"
+  grep -q "set dlx.dk.sync:running=1" "$MOCK_ZFS_LOG"
+  log_not_contains "$MOCK_ZFS_LOG" "zfs send"
+  log_not_contains "$MOCK_REMOTE_LOG" "remote_zfs receive"
 }
 
 # --- Running lock lifecycle ---
@@ -249,6 +209,6 @@ remote_log_not_contains() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  local_log_contains "set dlx.dk.sync:running=1 tank/data"
-  local_log_contains "inherit dlx.dk.sync:running tank/data"
+  grep -q "set dlx.dk.sync:running=1 tank/data" "$MOCK_ZFS_LOG"
+  grep -q "inherit dlx.dk.sync:running tank/data" "$MOCK_ZFS_LOG"
 }

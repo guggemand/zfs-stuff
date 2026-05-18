@@ -49,7 +49,7 @@ MOCK
   chmod +x "$TEST_TMPDIR/sync.sh"
 
   # --- copy the script under test -----------------------------------------
-  cp "$SCRIPT_DIR/syncall.sh" "$TEST_TMPDIR/syncall.sh"
+  cp "$SYNCALL" "$TEST_TMPDIR/syncall.sh"
   chmod +x "$TEST_TMPDIR/syncall.sh"
 
   # --- environment --------------------------------------------------------
