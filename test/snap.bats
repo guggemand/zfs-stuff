@@ -1,21 +1,17 @@
 #!/usr/bin/env bats
 
-setup() {
-  TEST_TMPDIR=$(mktemp -d)
-  MOCK_DIR="$BATS_TEST_DIRNAME/mocks"
-  SNAP="$BATS_TEST_DIRNAME/../snap.sh"
+load test_helper
 
-  export MOCK_ZFS_LOG="$TEST_TMPDIR/zfs.log"
-  export MOCK_ZFS_VALID_FS="tank/data"
+setup() {
+  common_setup
+  use_mock_zfs
+  use_mock_date
+  SNAP="$SCRIPT_DIR/snap.sh"
   export MOCK_ZFS_ACCEPT_ALL=1
-  export ZFS="$MOCK_DIR/zfs"
-  export DATE="$MOCK_DIR/date"
-  export FAKE_NOW="2025-01-15 12:00:00"
-  touch "$MOCK_ZFS_LOG"
 }
 
 teardown() {
-  rm -rf "$TEST_TMPDIR"
+  common_teardown
 }
 
 @test "exits with error when no arguments given" {

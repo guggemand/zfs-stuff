@@ -4,11 +4,11 @@
 # Tests for sendwithpigz.sh
 #
 
-SCRIPT_DIR="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-SENDWITHPIGZ="$SCRIPT_DIR/sendwithpigz.sh"
+load test_helper
 
 setup() {
-  TEST_TMPDIR=$(mktemp -d)
+  common_setup
+  SENDWITHPIGZ="$SCRIPT_DIR/sendwithpigz.sh"
   MOCK_BIN="$TEST_TMPDIR/bin"
   mkdir -p "$MOCK_BIN"
 
@@ -45,7 +45,7 @@ MOCK
 }
 
 teardown() {
-  rm -rf "$TEST_TMPDIR"
+  common_teardown
 }
 
 # --- Argument validation ---

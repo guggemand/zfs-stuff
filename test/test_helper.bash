@@ -1,43 +1,56 @@
 #!/bin/bash
 #
-# Common test helper for cleansnap.sh tests
+# Shared helper for all .bats test files.
+#
+# Usage in a test file:
+#   load test_helper
+#   setup()    { common_setup; use_mock_zfs; use_mock_date; ... }
+#   teardown() { common_teardown; }
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MOCK_DIR="$SCRIPT_DIR/test/mocks"
 CLEANSNAP="$SCRIPT_DIR/cleansnap.sh"
 
-setup() {
+# Create a per-test tmpdir and initialise the mock zfs log.
+common_setup() {
   TEST_TMPDIR=$(mktemp -d)
+  export TEST_TMPDIR
   export MOCK_ZFS_LOG="$TEST_TMPDIR/zfs.log"
-  export MOCK_ZFS_SNAPSHOTS="$TEST_TMPDIR/snapshots.txt"
-  export MOCK_ZFS_VALID_FS="tank/data"
-  export ZFS="$MOCK_DIR/zfs"
-  export DATE="$MOCK_DIR/date"
-  export BASH=$(command -v bash)
-  export FAKE_NOW="2025-01-15 12:00:00"
   touch "$MOCK_ZFS_LOG"
 }
 
-teardown() {
+common_teardown() {
   rm -rf "$TEST_TMPDIR"
 }
 
-# Helper: create a snapshot entry in the mock data
+# Point $ZFS at the shared mocks/zfs script.
+# add_snap/add_bookmark create $MOCK_ZFS_SNAPSHOTS on demand; we deliberately do
+# NOT touch it here so tests that exercise the "no snapshots" path see the mock
+# fall through to its error case.
+use_mock_zfs() {
+  export ZFS="$MOCK_DIR/zfs"
+  export MOCK_ZFS_SNAPSHOTS="$TEST_TMPDIR/snapshots.txt"
+  export MOCK_ZFS_VALID_FS="${MOCK_ZFS_VALID_FS:-tank/data}"
+}
+
+# Point $DATE at the shared mocks/date script.
+use_mock_date() {
+  export DATE="$MOCK_DIR/date"
+  export BASH=$(command -v bash)
+  export FAKE_NOW="${FAKE_NOW:-2025-01-15 12:00:00}"
+}
+
+# Append a snapshot entry (tab-separated name<TAB>creation_epoch) to the mock data.
 # Usage: add_snap "tank/data@snap-20250101-120000" 1735732800
 add_snap() {
   printf '%s\t%s\n' "$1" "$2" >> "$MOCK_ZFS_SNAPSHOTS"
 }
 
-# Helper: create a bookmark entry in the mock data
+# Append a bookmark entry.  Same shape as a snapshot but the name uses '#'.
 # Usage: add_bookmark "tank/data#snap-20250101-120000" 1735732800
 add_bookmark() {
   printf '%s\t%s\n' "$1" "$2" >> "$MOCK_ZFS_SNAPSHOTS"
-}
-
-# Helper: count how many "zfs destroy" calls were logged
-destroy_count() {
-  grep -c "^zfs destroy" "$MOCK_ZFS_LOG" || echo 0
 }
 
 # Helper: check if a specific snapshot was destroyed

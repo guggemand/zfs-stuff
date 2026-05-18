@@ -1,11 +1,14 @@
 #!/usr/bin/env bats
 
-setup() {
-  CHECK_SCRIPT="$BATS_TEST_DIRNAME/../check_zfs_snapshots.sh"
-  MOCK_DIR="$BATS_TEST_DIRNAME/mocks"
-  TEST_TMPDIR=$(mktemp -d)
+load test_helper
 
-  # Mock date that returns a fixed epoch
+setup() {
+  common_setup
+  use_mock_zfs
+  CHECK_SCRIPT="$SCRIPT_DIR/check_zfs_snapshots.sh"
+
+  # check_zfs_snapshots.sh calls `date +%s` directly; install a minimal mock
+  # on PATH that returns a fixed epoch.
   FAKE_NOW_EPOCH=$($(command -v gdate || command -v date) -d "2025-01-15 12:00:00" +%s)
   export FAKE_NOW_EPOCH
   mkdir -p "$TEST_TMPDIR/bin"
@@ -18,20 +21,11 @@ else
 fi
 MOCK
   chmod +x "$TEST_TMPDIR/bin/date"
-
-  export ZFS="$MOCK_DIR/zfs"
-  export MOCK_ZFS_SNAPSHOTS="$TEST_TMPDIR/snapshots.txt"
-  export MOCK_ZFS_LOG="$TEST_TMPDIR/zfs.log"
   export PATH="$TEST_TMPDIR/bin:$PATH"
-  touch "$MOCK_ZFS_SNAPSHOTS" "$MOCK_ZFS_LOG"
 }
 
 teardown() {
-  rm -rf "$TEST_TMPDIR"
-}
-
-add_snap() {
-  printf '%s\t%s\n' "$1" "$2" >> "$MOCK_ZFS_SNAPSHOTS"
+  common_teardown
 }
 
 # --- Argument validation ---

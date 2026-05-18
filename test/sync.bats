@@ -1,19 +1,17 @@
 #!/usr/bin/env bats
 
+load test_helper
+
 setup() {
-  SYNC="$BATS_TEST_DIRNAME/../sync.sh"
-  MOCK_DIR="$BATS_TEST_DIRNAME/mocks"
-  TEST_TMPDIR=$(mktemp -d)
+  common_setup
+  use_mock_zfs
+  SYNC="$SCRIPT_DIR/sync.sh"
 
-  export MOCK_ZFS_LOG="$TEST_TMPDIR/local.log"
   export MOCK_REMOTE_LOG="$TEST_TMPDIR/remote.log"
-  touch "$MOCK_ZFS_LOG" "$MOCK_REMOTE_LOG"
+  touch "$MOCK_REMOTE_LOG"
 
-  # Local mock uses shared mocks/zfs
-  export LOCALCMD="$MOCK_DIR/zfs"
-  export MOCK_ZFS_VALID_FS="tank/data"
-  export MOCK_ZFS_SNAPSHOTS="$TEST_TMPDIR/snapshots.txt"
-  touch "$MOCK_ZFS_SNAPSHOTS"
+  # sync.sh uses $LOCALCMD instead of $ZFS for the local zfs binary
+  export LOCALCMD="$ZFS"
 
   # Per-property defaults for sync.sh
   export MOCK_ZFS_PROP_REMOTECMD="$TEST_TMPDIR/remote_zfs"
@@ -46,12 +44,12 @@ MOCK
 }
 
 teardown() {
-  rm -rf "$TEST_TMPDIR"
+  common_teardown
 }
 
-# Helper: add a local snapshot (name + epoch)
+# add_snap (from test_helper) writes to MOCK_ZFS_SNAPSHOTS -- alias for clarity
 add_local_snap() {
-  printf '%s\t%s\n' "$1" "$2" >> "$MOCK_ZFS_SNAPSHOTS"
+  add_snap "$@"
 }
 
 # Helper: add a remote snapshot (name + epoch)

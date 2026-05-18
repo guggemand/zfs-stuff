@@ -1,18 +1,16 @@
 #!/usr/bin/env bats
 
-setup() {
-  AUTH_SCRIPT="$BATS_TEST_DIRNAME/../authorized_keys_commands.sh"
-  MOCK_DIR="$BATS_TEST_DIRNAME/mocks"
-  TEST_TMPDIR=$(mktemp -d)
+load test_helper
 
+setup() {
+  common_setup
+  AUTH_SCRIPT="$SCRIPT_DIR/authorized_keys_commands.sh"
   export PATH="$MOCK_DIR:$PATH"
   export MOCK_ZFS_ACCEPT_ALL=1
-  export MOCK_ZFS_LOG="$TEST_TMPDIR/zfs.log"
-  touch "$MOCK_ZFS_LOG"
 }
 
 teardown() {
-  rm -rf "$TEST_TMPDIR"
+  common_teardown
 }
 
 # --- Allowed: list ---

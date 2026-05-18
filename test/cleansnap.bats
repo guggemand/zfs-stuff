@@ -2,6 +2,16 @@
 
 load test_helper
 
+setup() {
+  common_setup
+  use_mock_zfs
+  use_mock_date
+}
+
+teardown() {
+  common_teardown
+}
+
 # --- Argument validation ---
 
 @test "exits with error when no arguments given" {

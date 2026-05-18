@@ -9,8 +9,10 @@
 # a configurable filesystem list.
 #
 
+load test_helper
+
 setup() {
-  TEST_TMPDIR=$(mktemp -d)
+  common_setup
 
   # --- mock zfs -----------------------------------------------------------
   # Returns filesystems listed in $MOCK_ZFS_FILESYSTEMS (one per line).
@@ -47,22 +49,20 @@ MOCK
   chmod +x "$TEST_TMPDIR/sync.sh"
 
   # --- copy the script under test -----------------------------------------
-  cp "$BATS_TEST_DIRNAME/../syncall.sh" "$TEST_TMPDIR/syncall.sh"
+  cp "$SCRIPT_DIR/syncall.sh" "$TEST_TMPDIR/syncall.sh"
   chmod +x "$TEST_TMPDIR/syncall.sh"
 
   # --- environment --------------------------------------------------------
   export ZFS="$TEST_TMPDIR/zfs"
-  export MOCK_ZFS_LOG="$TEST_TMPDIR/zfs.log"
   export MOCK_ZFS_FILESYSTEMS="$TEST_TMPDIR/filesystems.txt"
   export MOCK_SYNC_LOG="$TEST_TMPDIR/sync.log"
 
-  touch "$MOCK_ZFS_LOG"
   touch "$MOCK_ZFS_FILESYSTEMS"
   touch "$MOCK_SYNC_LOG"
 }
 
 teardown() {
-  rm -rf "$TEST_TMPDIR"
+  common_teardown
 }
 
 # ---------------------------------------------------------------------------
