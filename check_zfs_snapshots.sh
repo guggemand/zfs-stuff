@@ -2,25 +2,25 @@
 
 # Nagios check for checking the age of the newest snapshot on one or more zfs filesystems.
 
-if [ -z "$1" -o -z "$2" ]; then
-  echo Usage: $0 DefaultMaxMinutes FileSystem[:MaxMinutes] FileSystem[:MaxMinutes] ..
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Usage: $0 DefaultMaxMinutes FileSystem[:MaxMinutes] FileSystem[:MaxMinutes] .." >&2
   exit 1
 fi
 
 NOW=$(date +%s)
 DEFMAXDIFF=$(($1*60))
-ZFS=/sbin/zfs
+ZFS=${ZFS:-/sbin/zfs}
 
 shift
 
-for i in $*; do
+for i in "$@"; do
   FS=${i%%:*}
   FILESYSTEMS="$FILESYSTEMS $FS"
 done
 
-SNAPS=$(/sbin/zfs list -t snapshot -d 1 -H -p -o name,creation -s creation $FILESYSTEMS 2> /dev/null )
+SNAPS=$($ZFS list -t snapshot -d 1 -H -p -o name,creation -s creation $FILESYSTEMS 2> /dev/null )
 
-for i in $*; do
+for i in "$@"; do
   FS=${i%%:*}
   if [ "$FS" = "$i" ]; then
     MAXDIFF=$DEFMAXDIFF
@@ -30,13 +30,13 @@ for i in $*; do
 
   DATA=$(echo "$SNAPS" | grep "^$FS@" | tail -n 1 )
   SNAP=$(echo "$DATA"|cut -f 1)
-  if [ -z $SNAP ]; then
+  if [ -z "$SNAP" ]; then
     echo "ERROR: $FS does not exist"
     exit 2
   fi
   TIME=$(echo "$DATA"|cut -f 2)
   DIFF=$(($NOW-$TIME))
-  if [ $DIFF -gt $MAXDIFF ]; then
+  if [ "$DIFF" -gt "$MAXDIFF" ]; then
     if [ -n "$ERRORS" ]; then
       ERRORS="$ERRORS\n$SNAP"
     else
@@ -51,7 +51,7 @@ for i in $*; do
 done
 
 if [ -n "$ERRORS" ]; then
-  printf "ERROR: Snapshots to old\n$ERRORS | $PERFDATA\n"
+  printf "ERROR: Snapshots too old\n$ERRORS | $PERFDATA\n"
   exit 2
 fi
 

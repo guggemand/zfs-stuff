@@ -2,11 +2,11 @@
 set -e
 
 if [ -z "$5" ]; then
-  echo Usage: $0 FileSystem Days Weeks Months Years
+  echo "Usage: $0 FileSystem Days Weeks Months Years" >&2
   exit 1
 fi
 
-export ZFS=/sbin/zfs
+export ZFS=${ZFS:-/sbin/zfs}
 export FS=$1
 export DAYS=$2
 export WEEKS=$3
@@ -14,34 +14,36 @@ export MONTHS=$4
 export YEARS=$5
 export JUSTDOIT=$6
 
-case $(uname) in
-  SunOS)
-    DATE=/usr/gnu/bin/date
-    BASH=/usr/bin/bash
-    ;;
-  Linux)
-    DATE=/bin/date
-    BASH=/bin/bash
-    ;;
-  FreeBSD)
-    DATE=/usr/local/bin/gdate
-    BASH=/usr/local/bin/bash
-    if [ ! -x "$DATE" ]; then
-      echo "$DATE not found, install /usr/ports/sysutils/coreutils"
-      exit 2
-    fi
-    if [ ! -x "$BASH" ]; then
-      echo "$BASH not found, install /usr/ports/shells/bash"
-      exit 2
-    fi
-    ;;
-esac
+if [ -z "$DATE" ] || [ -z "$BASH" ]; then
+  case $(uname) in
+    SunOS)
+      DATE=${DATE:-/usr/gnu/bin/date}
+      BASH=${BASH:-/usr/bin/bash}
+      ;;
+    Linux)
+      DATE=${DATE:-/bin/date}
+      BASH=${BASH:-/bin/bash}
+      ;;
+    FreeBSD)
+      DATE=${DATE:-/usr/local/bin/gdate}
+      BASH=${BASH:-/usr/local/bin/bash}
+      if [ ! -x "$DATE" ]; then
+        echo "$DATE not found, install /usr/ports/sysutils/coreutils" >&2
+        exit 2
+      fi
+      if [ ! -x "$BASH" ]; then
+        echo "$BASH not found, install /usr/ports/shells/bash" >&2
+        exit 2
+      fi
+      ;;
+  esac
+fi
 
 export DATE
 
-if ! $ZFS list -H $FS > /dev/null 2> /dev/null; then
+if ! $ZFS list -H "$FS" > /dev/null 2> /dev/null; then
   if [ -t 1 ]; then
-    echo Invalid FileSystem
+    echo "Invalid FileSystem" >&2
   fi
   exit 1
 fi
@@ -87,10 +89,14 @@ $BASH << 'EOF'
 
   i=1;
   while read SNAP TIME; do
+    if [ -n "${timetosnap[$TIME]}" ]; then
+      echo "Warning: duplicate creation time for $SNAP, skipping" >&2
+      continue
+    fi
     timetosnap["$TIME"]="$SNAP"
     times[$i]="$TIME"
     i=$(($i+1))
-  done <<<"$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation $FS)"
+  done <<<"$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation "$FS")"
 
   TIMES=${times[@]}
 
@@ -163,13 +169,13 @@ $BASH << 'EOF'
     fi
   done
 
-  # We alwasy want to keep the latest snapshot
-  NEWEST=$($ZFS get -p -o value -H creation $($ZFS list -t snapshot -d 1 -S creation -H -o name $FS|head -n 1))
+  # We always want to keep the latest snapshot
+  NEWEST=$($ZFS get -p -o value -H creation "$($ZFS list -t snapshot -d 1 -S creation -H -o name "$FS"|head -n 1)")
   keeptimes[$NEWEST]=$NEWEST
 
   # We want to delete all other snapshots
   for i in $TIMES; do
-    if [ -z ${keeptimes[$i]} ]; then
+    if [ -z "${keeptimes[$i]}" ]; then
       snapstodelete[$i]=${timetosnap[$i]}
     else
       snapstokeep[$i]=${timetosnap[$i]}
@@ -197,26 +203,26 @@ $BASH << 'EOF'
 
   for i in $TIMES; do
     SNAP=${timetosnap[$i]}
-    if [ -z ${keeptimes[$i]} ]; then
+    if [ -z "${keeptimes[$i]}" ]; then
       if [[ $SNAP != *#* ]]; then
-        if [ ! -z ${keepbmtimes[$i]} ]; then
+        if [ ! -z "${keepbmtimes[$i]}" ]; then
           if [ -t 1 ]; then
             echo "$SNAP saved as bookmark"
           fi
           if [ $USEBM -eq 1 ]; then
-            $ZFS bookmark $SNAP ${SNAP/@/#}
+            $ZFS bookmark "$SNAP" "${SNAP/@/#}"
           fi
         fi
         if [ -t 1 ]; then
           echo "Deleting $SNAP!"
         fi
-        $ZFS destroy -d $SNAP
+        $ZFS destroy -d "$SNAP"
       else
-        if [ -z ${keepbmtimes[$i]} ]; then
+        if [ -z "${keepbmtimes[$i]}" ]; then
           if [ -t 1 ]; then
             echo "Deleting $SNAP!"
           fi
-          $ZFS destroy $SNAP
+          $ZFS destroy "$SNAP"
         fi
       fi
     fi
