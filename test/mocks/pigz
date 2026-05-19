@@ -1,0 +1,3 @@
+#!/bin/sh
+# Mock pigz -- just pass stdin through
+cat

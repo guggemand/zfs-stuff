@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+#
+# Mock zfs command for testing.
+#
+# Environment variables:
+#   MOCK_ZFS_ACCEPT_ALL  - if set, log and exit 0 for any command
+#   MOCK_ZFS_SNAPSHOTS   - file containing snapshot list output (name\tcreation)
+#   MOCK_ZFS_VALID_FS    - space-separated list of valid filesystems
+#   MOCK_ZFS_LOG         - file to log all zfs commands to
+#
+# Per-property overrides for "zfs get" (used by sync.sh):
+#   MOCK_ZFS_PROP_REMOTEFS  - value for dlx.dk.sync:remotefs
+#   MOCK_ZFS_PROP_REMOTECMD - value for dlx.dk.sync:remotecmd
+#   MOCK_ZFS_PROP_SENDARGS  - value for dlx.dk.sync:sendargs
+#   MOCK_ZFS_PROP_RUNNING   - value for dlx.dk.sync:running
+#
+
+if [ -n "$MOCK_ZFS_LOG" ]; then
+  echo "zfs $*" >> "$MOCK_ZFS_LOG"
+fi
+
+if [ -n "$MOCK_ZFS_ACCEPT_ALL" ]; then
+  exit 0
+fi
+
+CMD="$*"
+
+case "$1" in
+  list)
+    # zfs list -H <fs>  (validate filesystem)
+    if [ "$2" = "-H" ] && [ -z "$4" ]; then
+      FS="$3"
+      for valid in $MOCK_ZFS_VALID_FS; do
+        if [ "$valid" = "$FS" ]; then
+          exit 0
+        fi
+      done
+      exit 1
+    fi
+
+    # zfs list -t <type> ... -o name,creation ... -s creation <fs>
+    # Matches both "-o name,creation -p -s creation" and "-p -o name,creation -s creation"
+    if [[ "$CMD" == *"-o name,creation"*"-s creation"* ]]; then
+      if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
+        TYPE="$3"
+        if [ "$TYPE" = "snapshot" ]; then
+          grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | sort -t'	' -k2 -n || true
+        else
+          sort -t'	' -k2 -n "$MOCK_ZFS_SNAPSHOTS"
+        fi
+      fi
+      exit 0
+    fi
+
+    # zfs list -t snapshot -d 1 -S creation -H -o name <fs> (newest snapshot)
+    if [[ "$CMD" == *"-S creation -H -o name"* ]]; then
+      if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
+        grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | sort -t'	' -k2 -rn | head -1 | cut -f1
+      fi
+      exit 0
+    fi
+
+    # zfs list -t snapshot -s creation -o name -rH <fs> (name-only snapshot list)
+    if [[ "$CMD" == *"-o name -rH"* ]] || [[ "$CMD" == *"-o name"*"-rH"* ]]; then
+      if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
+        grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | sort -t'	' -k2 -n | cut -f1
+      fi
+      exit 0
+    fi
+
+    # zfs list <fs>@<snap> (validate specific snapshot exists)
+    if [[ "$2" == *@* ]]; then
+      if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
+        grep -q "^$2	" "$MOCK_ZFS_SNAPSHOTS" && exit 0
+      fi
+      exit 1
+    fi
+    ;;
+
+  get)
+    # zfs get -p -o value -H creation <snap>
+    if [[ "$CMD" == *"-p -o value -H creation "* ]]; then
+      SNAP="${@: -1}"
+      if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
+        grep "^${SNAP}	" "$MOCK_ZFS_SNAPSHOTS" | cut -f2
+        exit 0
+      fi
+    fi
+
+    # Per-property responses for dlx.dk.sync properties
+    if [[ "$CMD" == *"dlx.dk.sync:remotefs"* ]] && [ -n "$MOCK_ZFS_PROP_REMOTEFS" ]; then
+      echo "$MOCK_ZFS_PROP_REMOTEFS"
+      exit 0
+    fi
+    if [[ "$CMD" == *"dlx.dk.sync:remotecmd"* ]] && [ -n "$MOCK_ZFS_PROP_REMOTECMD" ]; then
+      echo "$MOCK_ZFS_PROP_REMOTECMD"
+      exit 0
+    fi
+    if [[ "$CMD" == *"dlx.dk.sync:sendargs"* ]] && [ -n "$MOCK_ZFS_PROP_SENDARGS" ]; then
+      echo "$MOCK_ZFS_PROP_SENDARGS"
+      exit 0
+    fi
+    if [[ "$CMD" == *"dlx.dk.sync:running"* ]] && [ -n "$MOCK_ZFS_PROP_RUNNING" ]; then
+      echo "$MOCK_ZFS_PROP_RUNNING"
+      exit 0
+    fi
+
+    # Default: all dlx.dk.sync properties return "-" (not set)
+    if [[ "$CMD" == *"dlx.dk.sync:"* ]]; then
+      echo "-"
+      exit 0
+    fi
+    ;;
+
+  destroy)
+    exit 0
+    ;;
+
+  bookmark)
+    exit 0
+    ;;
+
+  receive)
+    cat > /dev/null
+    exit 0
+    ;;
+
+  send)
+    echo "SENDSTREAM"
+    exit 0
+    ;;
+
+  set)
+    exit 0
+    ;;
+
+  inherit)
+    exit 0
+    ;;
+esac
+
+echo "mock zfs: unhandled command: $*" >&2
+exit 1
