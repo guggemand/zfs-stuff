@@ -14,6 +14,9 @@
 #   MOCK_ZFS_PROP_SENDARGS  - value for dlx.dk.sync:sendargs
 #   MOCK_ZFS_PROP_RUNNING   - value for dlx.dk.sync:running
 #
+# Failure injection:
+#   MOCK_ZFS_SEND_FAIL      - if set, "zfs send" emits a stream then exits 1
+#
 
 if [ -n "$MOCK_ZFS_LOG" ]; then
   echo "zfs $*" >> "$MOCK_ZFS_LOG"
@@ -127,6 +130,9 @@ case "$1" in
 
   send)
     echo "SENDSTREAM"
+    if [ -n "$MOCK_ZFS_SEND_FAIL" ]; then
+      exit 1
+    fi
     exit 0
     ;;
 

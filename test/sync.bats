@@ -212,3 +212,29 @@ add_remote_snap() {
   grep -q "set dlx.dk.sync:running=1 tank/data" "$MOCK_ZFS_LOG"
   grep -q "inherit dlx.dk.sync:running tank/data" "$MOCK_ZFS_LOG"
 }
+
+# --- Pipeline failure handling ---
+# Regression coverage: under POSIX `sh`, `zfs send | zfs receive || exit 2` only
+# catches a receive failure -- a failing zfs send is silently masked.  sync.sh
+# re-execs under bash with `set -o pipefail` so the send failure propagates.
+
+@test "initial sync exits 2 when zfs send fails mid-pipeline" {
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+  # No remote snapshots -> initial-sync branch
+  export MOCK_ZFS_SEND_FAIL=1
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 2 ]
+}
+
+@test "incremental sync exits 2 when zfs send fails mid-pipeline" {
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+  add_local_snap "tank/data@snap3" "3000"
+  add_remote_snap "backup/data@snap1" "1000"
+  export MOCK_ZFS_SEND_FAIL=1
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 2 ]
+}

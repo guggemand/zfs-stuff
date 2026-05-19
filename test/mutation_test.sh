@@ -269,7 +269,7 @@ mutate_and_test "$SN" "pmut 's/TIME=\\\$\\(\\\$DATE/TIME=\\\$(date/' $SN" \
   "snapshot timestamp comes from the DATE command" "$SNT"
 
 echo ""
-echo "=== sync.sh (14 tests) ==="
+echo "=== sync.sh (16 tests) ==="
 SY=sync.sh
 SYT=test/sync.bats
 
@@ -314,6 +314,12 @@ skip_test "already in sync detected by creation time not name"
 # Lock lifecycle
 mutate_and_test "$SY" "comment_line '\\\$LOCALCMD set dlx.dk.sync:running' $SY" \
   "sets running lock before sync and clears it after" "$SYT"
+
+# Pipefail regression -- removing set -o pipefail should let send failures slip through
+mutate_and_test "$SY" "comment_line 'set -o pipefail' $SY" \
+  "initial sync exits 2 when zfs send fails mid-pipeline" "$SYT"
+mutate_and_test "$SY" "comment_line 'set -o pipefail' $SY" \
+  "incremental sync exits 2 when zfs send fails mid-pipeline" "$SYT"
 
 echo ""
 echo "=== sendwithpigz.sh (6 tests) ==="

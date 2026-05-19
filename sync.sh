@@ -1,6 +1,23 @@
 #!/bin/sh
 
+# Re-exec under bash so we can use `set -o pipefail`; without it a failing
+# `zfs send` is silently masked by a successful `zfs receive`.  FreeBSD cron
+# has a minimal PATH, so we locate bash by absolute path rather than via env.
+if [ -z "$BASH_VERSION" ]; then
+  case "$(uname)" in
+    SunOS)   BASH=${BASH:-/usr/bin/bash} ;;
+    FreeBSD) BASH=${BASH:-/usr/local/bin/bash} ;;
+    *)       BASH=${BASH:-/bin/bash} ;;
+  esac
+  if [ ! -x "$BASH" ]; then
+    echo "$BASH not found" >&2
+    exit 2
+  fi
+  exec "$BASH" "$0" "$@"
+fi
+
 set -e
+set -o pipefail
 
 #
 # Syncs zfs filesystem with send / receive
