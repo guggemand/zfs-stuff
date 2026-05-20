@@ -6,40 +6,52 @@ if [ -z "$5" ]; then
   exit 1
 fi
 
-export ZFS=${ZFS:-/sbin/zfs}
-export FS=$1
-export DAYS=$2
-export WEEKS=$3
-export MONTHS=$4
-export YEARS=$5
-export JUSTDOIT=$6
-
-if [ -z "$DATE" ] || [ -z "$BASH" ]; then
-  case $(uname) in
-    SunOS)
-      DATE=${DATE:-/usr/gnu/bin/date}
-      BASH=${BASH:-/usr/bin/bash}
-      ;;
-    Linux)
-      DATE=${DATE:-/bin/date}
-      BASH=${BASH:-/bin/bash}
-      ;;
-    FreeBSD)
-      DATE=${DATE:-/usr/local/bin/gdate}
-      BASH=${BASH:-/usr/local/bin/bash}
-      if [ ! -x "$DATE" ]; then
-        echo "$DATE not found, install /usr/ports/sysutils/coreutils" >&2
-        exit 2
-      fi
-      if [ ! -x "$BASH" ]; then
-        echo "$BASH not found, install /usr/ports/shells/bash" >&2
-        exit 2
-      fi
-      ;;
-  esac
-fi
+# Locate bash and a GNU-compatible date.  FreeBSD cron has a minimal PATH,
+# so we locate both by absolute path rather than via $PATH lookups.
+case "$(uname)" in
+  SunOS)
+    BASH=${BASH:-/usr/bin/bash}
+    DATE=${DATE:-/usr/gnu/bin/date}
+    ;;
+  Linux)
+    BASH=${BASH:-/bin/bash}
+    DATE=${DATE:-/bin/date}
+    ;;
+  FreeBSD)
+    BASH=${BASH:-/usr/local/bin/bash}
+    DATE=${DATE:-/usr/local/bin/gdate}
+    if [ ! -x "$DATE" ]; then
+      echo "$DATE not found, install /usr/ports/sysutils/coreutils" >&2
+      exit 2
+    fi
+    if [ ! -x "$BASH" ]; then
+      echo "$BASH not found, install /usr/ports/shells/bash" >&2
+      exit 2
+    fi
+    ;;
+esac
 
 export DATE
+
+# Re-exec under bash so we can use arrays, `[[ ]]`, herestrings, and
+# `set -o pipefail`.  Stays in the same shell if already running under bash.
+if [ -z "$BASH_VERSION" ]; then
+  if [ ! -x "$BASH" ]; then
+    echo "$BASH not found" >&2
+    exit 2
+  fi
+  exec "$BASH" "$0" "$@"
+fi
+
+set -o pipefail
+
+ZFS=${ZFS:-/sbin/zfs}
+FS=$1
+DAYS=$2
+WEEKS=$3
+MONTHS=$4
+YEARS=$5
+JUSTDOIT=$6
 
 if ! $ZFS list -H "$FS" > /dev/null 2> /dev/null; then
   if [ -t 1 ]; then
@@ -48,184 +60,179 @@ if ! $ZFS list -H "$FS" > /dev/null 2> /dev/null; then
   exit 1
 fi
 
-$BASH << 'EOF'
-  set -e
+USEBM=0
 
-  USEBM=0
+BMDAYS=0
+if [[ $DAYS = *:* ]]; then
+  BMDAYS=${DAYS##*:}
+  DAYS=${DAYS%%:*}
+  USEBM=1
+fi
 
-  BMDAYS=0
-  if [[ $DAYS = *:* ]]; then
-    BMDAYS=${DAYS##*:}
-    DAYS=${DAYS%%:*}
-    USEBM=1
+BMWEEKS=0
+if [[ $WEEKS = *:* ]]; then
+  BMWEEKS=${WEEKS##*:}
+  WEEKS=${WEEKS%%:*}
+  USEBM=1
+fi
+
+BMMONTHS=0
+if [[ $MONTHS = *:* ]]; then
+  BMMONTHS=${MONTHS##*:}
+  MONTHS=${MONTHS%%:*}
+  USEBM=1
+fi
+
+BMYEARS=0
+if [[ $YEARS = *:* ]]; then
+  BMYEARS=${YEARS##*:}
+  YEARS=${YEARS%%:*}
+  USEBM=1
+fi
+
+if [ $USEBM -eq 1 ]; then
+  LISTTYPES=snapshot,bookmark
+else
+  LISTTYPES=snapshot
+fi
+
+i=1;
+while read SNAP TIME; do
+  if [ -n "${timetosnap[$TIME]}" ]; then
+    echo "Warning: duplicate creation time for $SNAP, skipping" >&2
+    continue
   fi
+  timetosnap["$TIME"]="$SNAP"
+  times[$i]="$TIME"
+  i=$(($i+1))
+done <<<"$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation "$FS")"
 
-  BMWEEKS=0
-  if [[ $WEEKS = *:* ]]; then
-    BMWEEKS=${WEEKS##*:}
-    WEEKS=${WEEKS%%:*}
-    USEBM=1
+TIMES=${times[@]}
+
+# Find all the daily snapshots we want to keep
+for ((i=0;i<$DAYS+$BMDAYS;i++)); do
+  TIME=$($DATE -d "$i days ago 00:00" +%s)
+  for j in $TIMES; do
+    if [ $j -ge $TIME ]; then
+      if [ $i -ge $DAYS ]; then
+        keepbmtimes[$j]=$j
+      else
+        keeptimes[$j]=$j
+      fi
+      break
+    fi
+  done
+done
+
+# Find all the weekly snapshots we want to keep
+for ((i=1;i<=$WEEKS+$BMWEEKS;i++)); do
+  TIME=$($DATE -d "$i week ago sunday 00:00" +%s)
+  for j in $TIMES; do
+    if [ $j -ge $TIME ]; then
+      if [ $i -gt $WEEKS ]; then
+        keepbmtimes[$j]=$j
+      else
+        keeptimes[$j]=$j
+      fi
+      break
+    fi
+  done
+done
+
+# Find the monthly snapshots we want to keep
+for ((i=0;i<$MONTHS+$BMMONTHS;i++)); do
+  TIME=$($DATE +%s -d "$($DATE +%Y-%m-01) -$i month")
+  for j in $TIMES; do
+    if [ $j -ge $TIME ]; then
+      if [ $i -ge $MONTHS ]; then
+        keepbmtimes[$j]=$j
+      else
+        keeptimes[$j]=$j
+      fi
+      break
+    fi
+  done
+done
+
+# Find the yearly snapshots we want to keep
+for ((i=0;i<$YEARS+$BMYEARS;i++)); do
+  #TIME=$($DATE +%s -d "$($DATE +%Y-01-01 -d "$i year ago")")
+  TIME=$($DATE +%s -d "$($DATE +%Y-01-01) -$i year")
+  for j in $TIMES; do
+    if [ $j -ge $TIME ]; then
+      if [ $i -ge $YEARS ]; then
+        keepbmtimes[$j]=$j
+      else
+        keeptimes[$j]=$j
+      fi
+      break
+    fi
+  done
+done
+
+# We always want to keep snapshots from the last 24 hours
+TIME=$(($($DATE +%s)-60*60*24))
+for i in $TIMES; do
+  if [ $i -ge $TIME ]; then
+    keeptimes[$i]=$i
   fi
+done
 
-  BMMONTHS=0
-  if [[ $MONTHS = *:* ]]; then
-    BMMONTHS=${MONTHS##*:}
-    MONTHS=${MONTHS%%:*}
-    USEBM=1
-  fi
+# We always want to keep the latest snapshot
+NEWEST=$($ZFS get -p -o value -H creation "$($ZFS list -t snapshot -d 1 -S creation -H -o name "$FS"|head -n 1)")
+keeptimes[$NEWEST]=$NEWEST
 
-  BMYEARS=0
-  if [[ $YEARS = *:* ]]; then
-    BMYEARS=${YEARS##*:}
-    YEARS=${YEARS%%:*}
-    USEBM=1
-  fi
-
-  if [ $USEBM -eq 1 ]; then
-    LISTTYPES=snapshot,bookmark
+# We want to delete all other snapshots
+for i in $TIMES; do
+  if [ -z "${keeptimes[$i]}" ]; then
+    snapstodelete[$i]=${timetosnap[$i]}
   else
-    LISTTYPES=snapshot
+    snapstokeep[$i]=${timetosnap[$i]}
   fi
+done
 
-  i=1;
-  while read SNAP TIME; do
-    if [ -n "${timetosnap[$TIME]}" ]; then
-      echo "Warning: duplicate creation time for $SNAP, skipping" >&2
-      continue
-    fi
-    timetosnap["$TIME"]="$SNAP"
-    times[$i]="$TIME"
-    i=$(($i+1))
-  done <<<"$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation "$FS")"
+KEEP=${#keeptimes[@]}
+REMOVE=${#snapstodelete[@]}
 
-  TIMES=${times[@]}
+if [ $KEEP -lt 1 ]; then
+  echo "Nothing to keep?!?"
+  exit 1
+fi
 
-  # Find all the daily snapshots we want to keep
-  for ((i=0;i<$DAYS+$BMDAYS;i++)); do
-    TIME=$($DATE -d "$i days ago 00:00" +%s)
-    for j in $TIMES; do
-      if [ $j -ge $TIME ]; then
-        if [ $i -ge $DAYS ]; then
-          keepbmtimes[$j]=$j
-        else
-          keeptimes[$j]=$j
-        fi
-        break
-      fi
-    done
-  done
-
-  # Find all the weekly snapshots we want to keep
-  for ((i=1;i<=$WEEKS+$BMWEEKS;i++)); do
-    TIME=$($DATE -d "$i week ago sunday 00:00" +%s)
-    for j in $TIMES; do
-      if [ $j -ge $TIME ]; then
-        if [ $i -gt $WEEKS ]; then
-          keepbmtimes[$j]=$j
-        else
-          keeptimes[$j]=$j
-        fi
-        break
-      fi
-    done
-  done
-
-  # Find the monthly snapshots we want to keep
-  for ((i=0;i<$MONTHS+$BMMONTHS;i++)); do
-    TIME=$($DATE +%s -d "$($DATE +%Y-%m-01) -$i month")
-    for j in $TIMES; do
-      if [ $j -ge $TIME ]; then
-        if [ $i -ge $MONTHS ]; then
-          keepbmtimes[$j]=$j
-        else
-          keeptimes[$j]=$j
-        fi
-        break
-      fi
-    done
-  done
-
-  # Find the yearly snapshots we want to keep
-  for ((i=0;i<$YEARS+$BMYEARS;i++)); do
-    #TIME=$($DATE +%s -d "$($DATE +%Y-01-01 -d "$i year ago")")
-    TIME=$($DATE +%s -d "$($DATE +%Y-01-01) -$i year")
-    for j in $TIMES; do
-      if [ $j -ge $TIME ]; then
-        if [ $i -ge $YEARS ]; then
-          keepbmtimes[$j]=$j
-        else
-          keeptimes[$j]=$j
-        fi
-        break
-      fi
-    done
-  done
-
-  # We always want to keep snapshots from the last 24 hours
-  TIME=$(($($DATE +%s)-60*60*24))
-  for i in $TIMES; do
-    if [ $i -ge $TIME ]; then
-      keeptimes[$i]=$i
-    fi
-  done
-
-  # We always want to keep the latest snapshot
-  NEWEST=$($ZFS get -p -o value -H creation "$($ZFS list -t snapshot -d 1 -S creation -H -o name "$FS"|head -n 1)")
-  keeptimes[$NEWEST]=$NEWEST
-
-  # We want to delete all other snapshots
-  for i in $TIMES; do
-    if [ -z "${keeptimes[$i]}" ]; then
-      snapstodelete[$i]=${timetosnap[$i]}
-    else
-      snapstokeep[$i]=${timetosnap[$i]}
-    fi
-  done
-
-  KEEP=${#keeptimes[@]}
-  REMOVE=${#snapstodelete[@]}
-
-  if [ $KEEP -lt 1 ]; then
-    echo "Nothing to keep?!?"
+if [ $REMOVE -gt $KEEP ]; then
+  echo "Cannot remove more than 50% of the snapshots, try again!"
+  echo "All: ${timetosnap[@]}"
+  echo "Remove: ${snapstodelete[@]}"
+  echo "Keep: ${snapstokeep[@]}"
+  # hidden feature :)
+  if [ "$JUSTDOIT" != "JustDoIt" ]; then
     exit 1
   fi
+fi
 
-  if [ $REMOVE -gt $KEEP ]; then
-    echo "Cannot remove more than 50% of the snapshots, try again!"
-    echo "All: ${timetosnap[@]}"
-    echo "Remove: ${snapstodelete[@]}"
-    echo "Keep: ${snapstokeep[@]}"
-    # hidden feature :)
-    if [ "$JUSTDOIT" != "JustDoIt" ]; then
-      exit 1
-    fi
-  fi
-
-  for i in $TIMES; do
-    SNAP=${timetosnap[$i]}
-    if [ -z "${keeptimes[$i]}" ]; then
-      if [[ $SNAP != *#* ]]; then
-        if [ ! -z "${keepbmtimes[$i]}" ]; then
-          if [ -t 1 ]; then
-            echo "$SNAP saved as bookmark"
-          fi
-          if [ $USEBM -eq 1 ]; then
-            $ZFS bookmark "$SNAP" "${SNAP/@/#}"
-          fi
+for i in $TIMES; do
+  SNAP=${timetosnap[$i]}
+  if [ -z "${keeptimes[$i]}" ]; then
+    if [[ $SNAP != *#* ]]; then
+      if [ ! -z "${keepbmtimes[$i]}" ]; then
+        if [ -t 1 ]; then
+          echo "$SNAP saved as bookmark"
         fi
+        if [ $USEBM -eq 1 ]; then
+          $ZFS bookmark "$SNAP" "${SNAP/@/#}"
+        fi
+      fi
+      if [ -t 1 ]; then
+        echo "Deleting $SNAP!"
+      fi
+      $ZFS destroy -d "$SNAP"
+    else
+      if [ -z "${keepbmtimes[$i]}" ]; then
         if [ -t 1 ]; then
           echo "Deleting $SNAP!"
         fi
-        $ZFS destroy -d "$SNAP"
-      else
-        if [ -z "${keepbmtimes[$i]}" ]; then
-          if [ -t 1 ]; then
-            echo "Deleting $SNAP!"
-          fi
-          $ZFS destroy "$SNAP"
-        fi
+        $ZFS destroy "$SNAP"
       fi
     fi
-  done
-EOF
-
+  fi
+done
