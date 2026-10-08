@@ -1,4 +1,8 @@
 #!/bin/sh
+# The script re-execs itself under bash below; lint the body as bash.
+# shellcheck shell=bash
+# SC2086/SC2004: unquoted $ZFS/$DATE and word-split time lists are intentional.
+# shellcheck disable=SC2086,SC2004
 set -e
 
 if [ -z "$5" ]; then
@@ -97,7 +101,7 @@ else
 fi
 
 i=1;
-while read SNAP TIME; do
+while read -r SNAP TIME; do
   if [ -n "${timetosnap[$TIME]}" ]; then
     echo "Warning: duplicate creation time for $SNAP, skipping" >&2
     continue
@@ -107,7 +111,7 @@ while read SNAP TIME; do
   i=$(($i+1))
 done <<<"$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation "$FS")"
 
-TIMES=${times[@]}
+TIMES=${times[*]}
 
 # Find all the daily snapshots we want to keep
 for ((i=0;i<$DAYS+$BMDAYS;i++)); do
@@ -201,9 +205,9 @@ fi
 
 if [ $REMOVE -gt $KEEP ]; then
   echo "Cannot remove more than 50% of the snapshots, try again!"
-  echo "All: ${timetosnap[@]}"
-  echo "Remove: ${snapstodelete[@]}"
-  echo "Keep: ${snapstokeep[@]}"
+  echo "All: ${timetosnap[*]}"
+  echo "Remove: ${snapstodelete[*]}"
+  echo "Keep: ${snapstokeep[*]}"
   # hidden feature :)
   if [ "$JUSTDOIT" != "JustDoIt" ]; then
     exit 1

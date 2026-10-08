@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2086  # unquoted $ZFS is intentional
 set -e
 
 ZFS=/sbin/zfs

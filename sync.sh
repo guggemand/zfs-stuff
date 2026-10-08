@@ -1,4 +1,9 @@
 #!/bin/sh
+# The script re-execs itself under bash below; lint the body as bash.
+# shellcheck shell=bash
+# SC2086: unquoted $LOCALCMD/$REMOTECMD/$SENDARGS word splitting is intentional.
+# SC2064: the trap must capture $LOCALCMD/$LOCALFS at set time.
+# shellcheck disable=SC2086,SC2064
 
 # Re-exec under bash so we can use `set -o pipefail`; without it a failing
 # `zfs send` is silently masked by a successful `zfs receive`.  FreeBSD cron
@@ -105,7 +110,7 @@ if [ -n "$RSNAP" ]; then
       $LOCALCMD send $SENDARGS -nvI "$LOCALFS@$RSNAP" "$LOCALFS@$LSNAP"
     fi
     SNAP1=$RSNAP
-    for SNAP in ${LSNAPS##*@$RSNAP}; do
+    for SNAP in ${LSNAPS##*@"$RSNAP"}; do
       SNAP2=${SNAP##*@}
       if [ -t 1 ] && [ -x "$PV" ]; then
         $LOCALCMD send $SENDARGS -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $PV | $REMOTECMD receive -F "$REMOTEFS" || exit 2
@@ -117,8 +122,7 @@ if [ -n "$RSNAP" ]; then
     exit
   fi
 else
-  LSNAP=$(echo $LSNAPS)
-  LSNAP=${LSNAP%% *}
+  LSNAP=${LSNAPS%%$'\n'*}
   LSNAP=${LSNAP##*@}
   if [ -t 1 ]; then
     echo "now syncing $LOCALFS"

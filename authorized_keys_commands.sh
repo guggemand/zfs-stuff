@@ -9,6 +9,7 @@ set -e
 # command="/path/to/authorized_keys_commands.sh",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa .........
 
 set -f
+# shellcheck disable=SC2086  # word splitting is the point; set -f blocks globs
 set -- $SSH_ORIGINAL_COMMAND
 
 if [ "$1 $2 $3" = "pigz -d |" ]; then

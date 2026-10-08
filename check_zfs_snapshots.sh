@@ -1,4 +1,6 @@
 #!/bin/sh
+# SC2086: unquoted $ZFS/$FILESYSTEMS word splitting is intentional.
+# shellcheck disable=SC2086,SC2004
 
 # Nagios check for checking the age of the newest snapshot on one or more zfs filesystems.
 
@@ -51,7 +53,7 @@ for i in "$@"; do
 done
 
 if [ -n "$ERRORS" ]; then
-  printf "ERROR: Snapshots too old\n$ERRORS | $PERFDATA\n"
+  printf 'ERROR: Snapshots too old\n%b | %s\n' "$ERRORS" "$PERFDATA"
   exit 2
 fi
 
