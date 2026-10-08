@@ -12,10 +12,11 @@ setup() {
   # sync.sh uses $LOCALCMD instead of $ZFS for the local zfs binary
   export LOCALCMD="$ZFS"
 
-  # Per-property defaults for sync.sh
+  # Per-property defaults for sync.sh.  SENDARGS is deliberately left unset:
+  # the mock then emits nothing, matching real zfs behavior for an unset
+  # property queried with -s source filtering.
   export MOCK_ZFS_PROP_REMOTECMD="$MOCK_DIR/remote_zfs"
   export MOCK_ZFS_PROP_REMOTEFS="backup/data"
-  export MOCK_ZFS_PROP_SENDARGS="-"
   export MOCK_ZFS_PROP_RUNNING="-"
 
   # Remote mock reads snapshots from its own file
@@ -146,6 +147,18 @@ add_remote_snap() {
   grep -q "set dlx.dk.sync:running=1" "$MOCK_ZFS_LOG"
   log_not_contains "$MOCK_ZFS_LOG" "zfs send"
   log_not_contains "$MOCK_REMOTE_LOG" "remote_zfs receive"
+}
+
+@test "sendargs property is passed through to zfs send" {
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+  add_remote_snap "backup/data@snap1" "1000"
+  export MOCK_ZFS_PROP_SENDARGS="-w"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  grep -q "zfs send -w -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
 }
 
 # --- Snapshot name ordering vs creation time ---

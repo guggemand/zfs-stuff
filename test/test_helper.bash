@@ -72,16 +72,17 @@ log_not_contains() {
   fi
 }
 
-# Helper: check if a specific snapshot was destroyed
+# Helper: check if a specific snapshot was destroyed.
+# Anchored on the full short name so "snap-1" does not match "snap-15".
 was_destroyed() {
-  grep -q "zfs destroy.*$1" "$MOCK_ZFS_LOG"
+  grep -Eq "zfs destroy (-d )?[^ ]*[@#]$1\$" "$MOCK_ZFS_LOG"
 }
 
 # Helper: assert a snapshot was NOT destroyed
 # NOTE: Do not use "! was_destroyed" -- the ! prefix suppresses errexit in bash,
 # so the assertion silently passes even when it should fail.
 was_not_destroyed() {
-  if grep -q "zfs destroy.*$1" "$MOCK_ZFS_LOG"; then
+  if grep -Eq "zfs destroy (-d )?[^ ]*[@#]$1\$" "$MOCK_ZFS_LOG"; then
     echo "Expected $1 to NOT be destroyed, but it was" >&2
     return 1
   fi
@@ -89,17 +90,17 @@ was_not_destroyed() {
 
 # Helper: check if a snapshot was destroyed with the -d (deferred) flag
 was_destroyed_deferred() {
-  grep -q "zfs destroy -d.*$1" "$MOCK_ZFS_LOG"
+  grep -Eq "zfs destroy -d [^ ]*[@#]$1\$" "$MOCK_ZFS_LOG"
 }
 
 # Helper: check if a snapshot was destroyed without -d (immediate, used for bookmarks)
 was_destroyed_immediate() {
-  grep "zfs destroy " "$MOCK_ZFS_LOG" | grep -v "zfs destroy -d" | grep -q "$1"
+  grep -Eq "zfs destroy [^ ]*[@#]$1\$" "$MOCK_ZFS_LOG"
 }
 
 # Helper: check if a bookmark was created for a snapshot
 was_bookmarked() {
-  grep -q "zfs bookmark.*$1" "$MOCK_ZFS_LOG"
+  grep -Eq "zfs bookmark [^ ]*@$1 " "$MOCK_ZFS_LOG"
 }
 
 # Helper: assert cleansnap actually ran (zfs commands appear in log)
@@ -120,7 +121,11 @@ epoch() {
 epoch_offset() {
   local base="$1"
   local days="$2"
-  # Use "X days ago" syntax -- negative offset becomes positive "ago"
-  local abs_days=${days#-}
-  $(command -v gdate || command -v date) -d "$base ${abs_days} days ago" +%s
+  if [ "${days#-}" != "$days" ]; then
+    # Negative offset: go backward with "N days ago"
+    $(command -v gdate || command -v date) -d "$base ${days#-} days ago" +%s
+  else
+    # Positive offset: go forward
+    $(command -v gdate || command -v date) -d "$base $days days" +%s
+  fi
 }

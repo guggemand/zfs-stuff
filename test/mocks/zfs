@@ -99,8 +99,12 @@ case "$1" in
       echo "$MOCK_ZFS_PROP_REMOTECMD"
       exit 0
     fi
-    if [[ "$CMD" == *"dlx.dk.sync:sendargs"* ]] && [ -n "$MOCK_ZFS_PROP_SENDARGS" ]; then
-      echo "$MOCK_ZFS_PROP_SENDARGS"
+    # sync.sh queries sendargs with `-s local,...` source filtering: a real
+    # zfs prints NOTHING (not "-") for an unset property, so mimic that.
+    if [[ "$CMD" == *"dlx.dk.sync:sendargs"* ]]; then
+      if [ -n "$MOCK_ZFS_PROP_SENDARGS" ]; then
+        echo "$MOCK_ZFS_PROP_SENDARGS"
+      fi
       exit 0
     fi
     if [[ "$CMD" == *"dlx.dk.sync:running"* ]] && [ -n "$MOCK_ZFS_PROP_RUNNING" ]; then

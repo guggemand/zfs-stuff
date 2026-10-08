@@ -300,6 +300,10 @@ mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \\\$SENDARGS \"\\\$LOCALFS\@\\\
 mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send \\\$SENDARGS -BROKEN/' $SY" \
   "incremental sync sends with zfs send -i and receive -F" "$SYT"
 
+# Drop SENDARGS from the incremental send
+mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send -i/' $SY" \
+  "sendargs property is passed through to zfs send" "$SYT"
+
 # Already in sync -- neutral mutation (stripping produces empty loop regardless)
 skip_test "already in sync does nothing and exits 0"
 
