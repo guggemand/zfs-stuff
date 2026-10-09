@@ -9,6 +9,11 @@ echo "remote_zfs $*" >> "$MOCK_REMOTE_LOG"
 case "$1" in
   list)
     for a; do FS=$a; done
+    # Mimic a receiving host where the target filesystem does not exist yet
+    if [ -n "$MOCK_REMOTE_MISSING_FS" ]; then
+      echo "cannot open '$FS': dataset does not exist" >&2
+      exit 1
+    fi
     case " $* " in
       *" -d 1 "*)
         # Mimic an older authorized_keys_commands.sh that only allows -rH

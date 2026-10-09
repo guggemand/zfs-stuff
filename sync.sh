@@ -96,6 +96,11 @@ trap "$LOCALCMD inherit dlx.dk.sync:running $LOCALFS" 0 1 2 3 15
 # A receiver still running an older authorized_keys_commands.sh rejects -d 1
 # and only allows the recursive -rH form.  Fall back to that and keep only
 # REMOTEFS's own snapshots -- children show up as "$REMOTEFS/child@snap".
+#
+# If both forms fail, the remote filesystem most likely does not exist yet
+# (first sync).  Carry on with no remote snapshots: the full send below then
+# creates it.  That receive runs without -F, so if the list failed for some
+# other reason it cannot overwrite an existing filesystem -- it just fails.
 own_snapshots() {
   local name
   while IFS= read -r name; do
@@ -105,10 +110,14 @@ own_snapshots() {
   done
 }
 if ! RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -d 1 -H "$REMOTEFS" 2>/dev/null); then
-  if [ -t 1 ]; then
-    echo "Remote rejected 'zfs list -d 1', falling back to recursive list" >&2
+  if RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -rH "$REMOTEFS" | own_snapshots "$REMOTEFS"); then
+    if [ -t 1 ]; then
+      echo "Remote rejected 'zfs list -d 1', fell back to recursive list" >&2
+    fi
+  else
+    echo "Cannot list snapshots of $REMOTEFS, assuming it does not exist yet; sending a full stream to create it" >&2
+    RSNAP=
   fi
-  RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -rH "$REMOTEFS" | own_snapshots "$REMOTEFS")
 fi
 RSNAP=${RSNAP##*@}
 LSNAPS=$($LOCALCMD list -t snapshot -s creation -o name -d 1 -H "$LOCALFS")

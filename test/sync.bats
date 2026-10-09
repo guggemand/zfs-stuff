@@ -140,6 +140,24 @@ add_remote_snap() {
   grep -q "receive backup/data" "$MOCK_REMOTE_LOG"
 }
 
+@test "first sync creates the remote filesystem when it does not exist" {
+  # Regression: under set -e the failing remote zfs list aborted the script,
+  # so the full-send branch that creates the remote filesystem was dead code.
+  export MOCK_REMOTE_MISSING_FS=1
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+  # Not silent: the first run tells cron what it is doing
+  [[ "$output" == *"assuming it does not exist yet"* ]]
+
+  # Full send of the oldest snapshot, received without -F
+  grep -q "zfs send tank/data@snap1" "$MOCK_ZFS_LOG"
+  grep -q "remote_zfs receive backup/data" "$MOCK_REMOTE_LOG"
+  log_not_contains "$MOCK_REMOTE_LOG" "receive -F"
+}
+
 @test "incremental sync sends with zfs send -i and receive -F" {
   add_local_snap "tank/data@snap1" "1000"
   add_local_snap "tank/data@snap2" "2000"

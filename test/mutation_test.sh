@@ -365,6 +365,9 @@ mutate_and_test "$SY" "pmut 's/-o name -d 1 -H/-o name -rH/' $SY" \
 # Legacy fallback: skip the child-dataset filter
 mutate_and_test "$SY" "pmut 's/ \\| own_snapshots \"\\\$REMOTEFS\"//' $SY" \
   "falls back to recursive remote list when the receiver rejects -d 1" "$SYT"
+# First sync: abort when the remote list fails instead of doing the full send
+mutate_and_test "$SY" "pmut 's/^    RSNAP=\\n/    exit 1\\n/' $SY" \
+  "first sync creates the remote filesystem when it does not exist" "$SYT"
 # Legacy fallback: retry with the same rejected -d 1 form
 mutate_and_test "$SY" "pmut 's/-o name -rH \"\\\$REMOTEFS\"/-o name -d 1 -H \"\\\$REMOTEFS\"/' $SY" \
   "falls back to recursive remote list when the receiver rejects -d 1" "$SYT"

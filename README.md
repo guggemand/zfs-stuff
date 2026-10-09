@@ -49,6 +49,12 @@ case that the stored PID has been recycled by an unrelated long-lived
 process (upgrades from versions that stored `1` in the lock look like this
 too, since PID 1 is always alive).
 
+**First sync:** if the remote filesystem does not exist yet, sync.sh warns
+on stderr and creates it with a full send of the oldest local snapshot (the
+parent dataset must exist on the remote). The next run sends the remaining
+snapshots incrementally. The full receive runs without `-F`, so an existing
+remote filesystem is never overwritten.
+
 ```
 sync.sh <filesystem>
 ```
