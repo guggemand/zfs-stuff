@@ -347,7 +347,7 @@ mutate_and_test "$SY" "pmut 's/if ! \\\$LOCALCMD list \"\\\$LOCALFS\@\\\$RSNAP\"
   "exits 2 when newest remote snapshot does not exist locally" "$SYT"
 
 # Initial sync
-mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \\\$SENDARGS \"\\\$LOCALFS\@\\\$LSNAP\"/echo NOSEND/' $SY" \
+mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \\\$SENDARGS \"\\\$LOCALFS\@\\\$SNAP1\"/echo NOSEND/' $SY" \
   "initial sync sends first local snapshot with zfs send and receive" "$SYT"
 
 # Incremental
@@ -365,6 +365,13 @@ mutate_and_test "$SY" "pmut 's/-o name -d 1 -H/-o name -rH/' $SY" \
 # Legacy fallback: skip the child-dataset filter
 mutate_and_test "$SY" "pmut 's/ \\| own_snapshots \"\\\$REMOTEFS\"//' $SY" \
   "falls back to recursive remote list when the receiver rejects -d 1" "$SYT"
+# Initial sync: stop after the full send instead of catching up
+mutate_and_test "$SY" "pmut 's/(receive \"\\\$REMOTEFS\" \\|\\| exit 2)\\n/\$1; exit\\n/' $SY" \
+  "initial sync sends every snapshot, not just the oldest" "$SYT"
+# Initial sync: loop from the newest instead of the oldest snapshot -- the
+# single-snapshot case must still send no incrementals
+mutate_and_test "$SY" "pmut 's/^for SNAP in \\\$\\{LSNAPS##\\*@\"\\\$SNAP1\"\\}/for SNAP in \\\$LSNAPS/' $SY" \
+  "initial sync with single local snapshot does not emit any incrementals" "$SYT"
 # First sync: abort when the remote list fails instead of doing the full send
 mutate_and_test "$SY" "pmut 's/^    RSNAP=\\n/    exit 1\\n/' $SY" \
   "first sync creates the remote filesystem when it does not exist" "$SYT"
@@ -375,7 +382,7 @@ mutate_and_test "$SY" "pmut 's/-o name -rH \"\\\$REMOTEFS\"/-o name -d 1 -H \"\\
 # Already in sync -- neutral mutation (stripping produces empty loop regardless)
 skip_test "already in sync does nothing and exits 0"
 
-mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \\\$SENDARGS \"\\\$LOCALFS\@\\\$LSNAP\"/echo NOSEND/' $SY" \
+mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \\\$SENDARGS \"\\\$LOCALFS\@\\\$SNAP1\"/echo NOSEND/' $SY" \
   "initial sync uses oldest snapshot by creation time not by name" "$SYT"
 mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send \\\$SENDARGS -BROKEN/' $SY" \
   "incremental sync follows creation time order not name order" "$SYT"

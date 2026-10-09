@@ -136,35 +136,43 @@ if [ -n "$RSNAP" ]; then
   fi
 fi
 
-#check if newest snapshot is synced, if not do that
+# Nothing to do when the remote already has the newest local snapshot.
+if [ -n "$RSNAP" ] && [ "$RSNAP" = "$LSNAP" ]; then
+  exit
+fi
+
 if [ -n "$RSNAP" ]; then
-  if [ "$RSNAP" != "$LSNAP" ]; then
-    if [ -t 1 ]; then
-      echo "now syncing $LOCALFS"
-      $LOCALCMD send $SENDARGS -nvI "$LOCALFS@$RSNAP" "$LOCALFS@$LSNAP"
-    fi
-    SNAP1=$RSNAP
-    for SNAP in ${LSNAPS##*@"$RSNAP"}; do
-      SNAP2=${SNAP##*@}
-      if [ -t 1 ] && [ -x "$PV" ]; then
-        $LOCALCMD send $SENDARGS -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $PV | $REMOTECMD receive -F "$REMOTEFS" || exit 2
-      else
-        $LOCALCMD send $SENDARGS -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $REMOTECMD receive -F "$REMOTEFS" || exit 2
-      fi
-      SNAP1=$SNAP2
-    done
-    exit
-  fi
-else
-  LSNAP=${LSNAPS%%$'\n'*}
-  LSNAP=${LSNAP##*@}
+  # Catch up an existing remote: incremental from RSNAP to the latest local.
   if [ -t 1 ]; then
     echo "now syncing $LOCALFS"
-    $LOCALCMD send $SENDARGS -nv "$LOCALFS@$LSNAP"
+    $LOCALCMD send $SENDARGS -nvI "$LOCALFS@$RSNAP" "$LOCALFS@$LSNAP"
+  fi
+  SNAP1=$RSNAP
+else
+  # Fresh remote: full-send the oldest local snapshot, then fall through to
+  # the incremental loop so every newer snapshot is sent in the same run.
+  SNAP1=${LSNAPS%%$'\n'*}
+  SNAP1=${SNAP1##*@}
+  if [ -t 1 ]; then
+    echo "now syncing $LOCALFS"
+    $LOCALCMD send $SENDARGS -nv "$LOCALFS@$SNAP1"
+    if [ "$SNAP1" != "$LSNAP" ]; then
+      $LOCALCMD send $SENDARGS -nvI "$LOCALFS@$SNAP1" "$LOCALFS@$LSNAP"
+    fi
   fi
   if [ -t 1 ] && [ -x "$PV" ]; then
-    $LOCALCMD send $SENDARGS "$LOCALFS@$LSNAP" | $PV | $REMOTECMD receive "$REMOTEFS" || exit 2
+    $LOCALCMD send $SENDARGS "$LOCALFS@$SNAP1" | $PV | $REMOTECMD receive "$REMOTEFS" || exit 2
   else
-    $LOCALCMD send $SENDARGS "$LOCALFS@$LSNAP" | $REMOTECMD receive "$REMOTEFS" || exit 2
+    $LOCALCMD send $SENDARGS "$LOCALFS@$SNAP1" | $REMOTECMD receive "$REMOTEFS" || exit 2
   fi
 fi
+
+for SNAP in ${LSNAPS##*@"$SNAP1"}; do
+  SNAP2=${SNAP##*@}
+  if [ -t 1 ] && [ -x "$PV" ]; then
+    $LOCALCMD send $SENDARGS -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $PV | $REMOTECMD receive -F "$REMOTEFS" || exit 2
+  else
+    $LOCALCMD send $SENDARGS -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $REMOTECMD receive -F "$REMOTEFS" || exit 2
+  fi
+  SNAP1=$SNAP2
+done

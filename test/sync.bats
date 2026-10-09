@@ -136,7 +136,8 @@ add_remote_snap() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  grep -q "send.*tank/data@snap1" "$MOCK_ZFS_LOG"
+  # The full (non-incremental) send, not just any send mentioning snap1
+  grep -qx "zfs send tank/data@snap1" "$MOCK_ZFS_LOG"
   grep -q "receive backup/data" "$MOCK_REMOTE_LOG"
 }
 
@@ -152,10 +153,41 @@ add_remote_snap() {
   # Not silent: the first run tells cron what it is doing
   [[ "$output" == *"assuming it does not exist yet"* ]]
 
-  # Full send of the oldest snapshot, received without -F
-  grep -q "zfs send tank/data@snap1" "$MOCK_ZFS_LOG"
-  grep -q "remote_zfs receive backup/data" "$MOCK_REMOTE_LOG"
-  log_not_contains "$MOCK_REMOTE_LOG" "receive -F"
+  # Full send of the oldest snapshot; the receive that creates the
+  # filesystem must not use -F
+  grep -qx "zfs send tank/data@snap1" "$MOCK_ZFS_LOG"
+  [ "$(grep "receive" "$MOCK_REMOTE_LOG" | head -1)" = "remote_zfs receive backup/data" ]
+  # ...then caught up in the same run
+  grep -q "zfs send -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
+}
+
+@test "initial sync sends every snapshot, not just the oldest" {
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+  add_local_snap "tank/data@snap3" "3000"
+  # No remote snapshots -> fresh-remote / initial-sync branch
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  # Full send of the oldest snapshot
+  grep -qx "zfs send tank/data@snap1" "$MOCK_ZFS_LOG"
+  grep -q "receive backup/data" "$MOCK_REMOTE_LOG"
+  # Plus incremental sends to fast-forward every newer snapshot
+  grep -q "zfs send -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
+  grep -q "zfs send -i tank/data@snap2 tank/data@snap3" "$MOCK_ZFS_LOG"
+  grep -q "receive -F backup/data" "$MOCK_REMOTE_LOG"
+}
+
+@test "initial sync with single local snapshot does not emit any incrementals" {
+  add_local_snap "tank/data@only" "1000"
+  # No remote snapshots
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  grep -qx "zfs send tank/data@only" "$MOCK_ZFS_LOG"
+  log_not_contains "$MOCK_ZFS_LOG" "send -i "
 }
 
 @test "incremental sync sends with zfs send -i and receive -F" {
@@ -253,7 +285,7 @@ add_remote_snap() {
   [ "$status" -eq 0 ]
 
   # Should send z-first-alpha (oldest by creation), not a-last-alpha (first alphabetically)
-  grep -q "send.*tank/data@z-first-alpha" "$MOCK_ZFS_LOG"
+  grep -qx "zfs send tank/data@z-first-alpha" "$MOCK_ZFS_LOG"
 }
 
 @test "incremental sync follows creation time order not name order" {
