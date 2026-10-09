@@ -234,7 +234,7 @@ for i in $TIMES; do
   SNAP=${timetosnap[$i]}
   if [ -z "${keeptimes[$i]}" ]; then
     if [[ $SNAP != *#* ]]; then
-      if [ ! -z "${keepbmtimes[$i]}" ]; then
+      if [ -n "${keepbmtimes[$i]}" ]; then
         if [ -t 1 ]; then
           echo "$SNAP saved as bookmark"
         fi
