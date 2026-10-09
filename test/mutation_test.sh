@@ -347,16 +347,19 @@ mutate_and_test "$SY" "pmut 's/if ! \\\$LOCALCMD list \"\\\$LOCALFS\@\\\$RSNAP\"
   "exits 2 when newest remote snapshot does not exist locally" "$SYT"
 
 # Initial sync
-mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \\\$SENDARGS \"\\\$LOCALFS\@\\\$SNAP1\"/echo NOSEND/' $SY" \
+mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \"\\\$\\{SENDARGS_ARR\\[\\@\\]\\}\" \"\\\$LOCALFS\@\\\$SNAP1\"/echo NOSEND/' $SY" \
   "initial sync sends first local snapshot with zfs send and receive" "$SYT"
 
 # Incremental
-mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send \\\$SENDARGS -BROKEN/' $SY" \
+mutate_and_test "$SY" "pmut 's/send \"\\\$\\{SENDARGS_ARR\\[\\@\\]\\}\" -i/send \\\$SENDARGS -BROKEN/' $SY" \
   "incremental sync sends with zfs send -i and receive -F" "$SYT"
 
 # Drop SENDARGS from the incremental send
-mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send -i/' $SY" \
+mutate_and_test "$SY" "pmut 's/send \"\\\$\\{SENDARGS_ARR\\[\\@\\]\\}\" -i/send -i/' $SY" \
   "sendargs property is passed through to zfs send" "$SYT"
+# Pass SENDARGS as one quoted word: "-w -c" becomes a single bogus flag
+mutate_and_test "$SY" "pmut 's/read -ra SENDARGS_ARR <<< \"\\\$SENDARGS\"/SENDARGS_ARR=(\"\\\$SENDARGS\")/' $SY" \
+  "multi-flag sendargs are passed to zfs send as separate flags" "$SYT"
 
 # Revert to the recursive listing that mixed in child-dataset snapshots
 mutate_and_test "$SY" "pmut 's/-o name -d 1 -H/-o name -rH/' $SY" \
@@ -382,9 +385,9 @@ mutate_and_test "$SY" "pmut 's/-o name -rH \"\\\$REMOTEFS\"/-o name -d 1 -H \"\\
 # Already in sync -- neutral mutation (stripping produces empty loop regardless)
 skip_test "already in sync does nothing and exits 0"
 
-mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \\\$SENDARGS \"\\\$LOCALFS\@\\\$SNAP1\"/echo NOSEND/' $SY" \
+mutate_and_test "$SY" "pmut 's/\\\$LOCALCMD send \"\\\$\\{SENDARGS_ARR\\[\\@\\]\\}\" \"\\\$LOCALFS\@\\\$SNAP1\"/echo NOSEND/' $SY" \
   "initial sync uses oldest snapshot by creation time not by name" "$SYT"
-mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send \\\$SENDARGS -BROKEN/' $SY" \
+mutate_and_test "$SY" "pmut 's/send \"\\\$\\{SENDARGS_ARR\\[\\@\\]\\}\" -i/send \\\$SENDARGS -BROKEN/' $SY" \
   "incremental sync follows creation time order not name order" "$SYT"
 
 # Already in sync -- neutral mutation

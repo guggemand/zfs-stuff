@@ -273,6 +273,18 @@ add_remote_snap() {
   grep -q "zfs send -w -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
 }
 
+@test "multi-flag sendargs are passed to zfs send as separate flags" {
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+  add_remote_snap "backup/data@snap1" "1000"
+  export MOCK_ZFS_PROP_SENDARGS="-w -c"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  grep -qx "zfs send -w -c -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
+}
+
 # --- Snapshot name ordering vs creation time ---
 
 @test "initial sync uses oldest snapshot by creation time not by name" {

@@ -18,8 +18,17 @@
 #   MOCK_ZFS_SEND_FAIL      - if set, "zfs send" emits a stream then exits 1
 #
 
+# An argument containing a space is logged as [like this], so tests can tell
+# one quoted word apart from several separate arguments.
 if [ -n "$MOCK_ZFS_LOG" ]; then
-  echo "zfs $*" >> "$MOCK_ZFS_LOG"
+  LOGARGS=()
+  for arg; do
+    case "$arg" in
+      *" "*) LOGARGS+=("[$arg]") ;;
+      *) LOGARGS+=("$arg") ;;
+    esac
+  done
+  echo "zfs ${LOGARGS[*]}" >> "$MOCK_ZFS_LOG"
 fi
 
 if [ -n "$MOCK_ZFS_ACCEPT_ALL" ]; then

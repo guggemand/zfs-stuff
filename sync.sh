@@ -1,7 +1,7 @@
 #!/bin/sh
 # The script re-execs itself under bash below; lint the body as bash.
 # shellcheck shell=bash
-# SC2086: unquoted $LOCALCMD/$REMOTECMD/$SENDARGS word splitting is intentional.
+# SC2086: unquoted $LOCALCMD/$REMOTECMD word splitting is intentional.
 # shellcheck disable=SC2086
 
 # Re-exec under bash so we can use `set -o pipefail`; without it a failing
@@ -59,6 +59,9 @@ fi
 REMOTEFS=$($LOCALCMD get -H -o value dlx.dk.sync:remotefs "$LOCALFS")
 REMOTECMD=$($LOCALCMD get -H -o value dlx.dk.sync:remotecmd "$LOCALFS")
 SENDARGS=$($LOCALCMD get -s local,default,inherited,temporary,received -H -o value dlx.dk.sync:sendargs "$LOCALFS")
+# Split SENDARGS into an array so a multi-flag value (e.g. "-w -c")
+# expands as separate arguments without relying on unquoted expansion.
+read -ra SENDARGS_ARR <<< "$SENDARGS"
 
 if [ "$REMOTEFS" = "-" ]; then
   echo "Missing dlx.dk.sync:remotefs property" >&2
@@ -145,7 +148,7 @@ if [ -n "$RSNAP" ]; then
   # Catch up an existing remote: incremental from RSNAP to the latest local.
   if [ -t 1 ]; then
     echo "now syncing $LOCALFS"
-    $LOCALCMD send $SENDARGS -nvI "$LOCALFS@$RSNAP" "$LOCALFS@$LSNAP"
+    $LOCALCMD send "${SENDARGS_ARR[@]}" -nvI "$LOCALFS@$RSNAP" "$LOCALFS@$LSNAP"
   fi
   SNAP1=$RSNAP
 else
@@ -155,24 +158,24 @@ else
   SNAP1=${SNAP1##*@}
   if [ -t 1 ]; then
     echo "now syncing $LOCALFS"
-    $LOCALCMD send $SENDARGS -nv "$LOCALFS@$SNAP1"
+    $LOCALCMD send "${SENDARGS_ARR[@]}" -nv "$LOCALFS@$SNAP1"
     if [ "$SNAP1" != "$LSNAP" ]; then
-      $LOCALCMD send $SENDARGS -nvI "$LOCALFS@$SNAP1" "$LOCALFS@$LSNAP"
+      $LOCALCMD send "${SENDARGS_ARR[@]}" -nvI "$LOCALFS@$SNAP1" "$LOCALFS@$LSNAP"
     fi
   fi
   if [ -t 1 ] && [ -x "$PV" ]; then
-    $LOCALCMD send $SENDARGS "$LOCALFS@$SNAP1" | $PV | $REMOTECMD receive "$REMOTEFS" || exit 2
+    $LOCALCMD send "${SENDARGS_ARR[@]}" "$LOCALFS@$SNAP1" | $PV | $REMOTECMD receive "$REMOTEFS" || exit 2
   else
-    $LOCALCMD send $SENDARGS "$LOCALFS@$SNAP1" | $REMOTECMD receive "$REMOTEFS" || exit 2
+    $LOCALCMD send "${SENDARGS_ARR[@]}" "$LOCALFS@$SNAP1" | $REMOTECMD receive "$REMOTEFS" || exit 2
   fi
 fi
 
 for SNAP in ${LSNAPS##*@"$SNAP1"}; do
   SNAP2=${SNAP##*@}
   if [ -t 1 ] && [ -x "$PV" ]; then
-    $LOCALCMD send $SENDARGS -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $PV | $REMOTECMD receive -F "$REMOTEFS" || exit 2
+    $LOCALCMD send "${SENDARGS_ARR[@]}" -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $PV | $REMOTECMD receive -F "$REMOTEFS" || exit 2
   else
-    $LOCALCMD send $SENDARGS -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $REMOTECMD receive -F "$REMOTEFS" || exit 2
+    $LOCALCMD send "${SENDARGS_ARR[@]}" -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $REMOTECMD receive -F "$REMOTEFS" || exit 2
   fi
   SNAP1=$SNAP2
 done
