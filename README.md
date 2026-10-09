@@ -133,6 +133,14 @@ SSH forced-command wrapper for the **receiving** host's `~/.ssh/authorized_keys`
 command="/path/to/authorized_keys_commands.sh",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa ...
 ```
 
+Pass a filesystem as argument to additionally restrict `zfs receive` to that
+filesystem and its descendants (recommended -- `zfs receive -F` can otherwise
+roll back and overwrite *any* dataset on the receiving host):
+
+```
+command="/path/to/authorized_keys_commands.sh backup/data",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa ...
+```
+
 ## Installation
 
 Place the scripts in a directory on your `$PATH`, for example `/usr/local/sbin`. The scripts reference each other by relative path, so keep them together.
@@ -185,7 +193,9 @@ Use `authorized_keys_commands.sh` on the receiving host to restrict the dedicate
 
 ```
 # ~/.ssh/authorized_keys on the remote host
-command="/usr/local/sbin/authorized_keys_commands.sh",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa AAAA...
+command="/usr/local/sbin/authorized_keys_commands.sh backup/data",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa AAAA...
 ```
 
-This allows `zfs list` and `zfs receive` but rejects any other SSH command.
+This allows `zfs list` and `zfs receive` but rejects any other SSH command,
+and (with the `backup/data` argument) refuses to receive into anything other
+than `backup/data` and its descendants.

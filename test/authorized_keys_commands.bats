@@ -74,6 +74,38 @@ teardown() {
   grep -q "zfs list" "$MOCK_ZFS_LOG"
 }
 
+# --- Receive target restriction (optional script argument) ---
+
+@test "receive into the allowed filesystem is allowed when restricted" {
+  export SSH_ORIGINAL_COMMAND="zfs receive -F backup/data"
+  run "$AUTH_SCRIPT" backup/data
+  [ "$status" -eq 0 ]
+  grep -q "zfs receive -F backup/data" "$MOCK_ZFS_LOG"
+}
+
+@test "receive into a descendant of the allowed filesystem is allowed" {
+  export SSH_ORIGINAL_COMMAND="zfs receive backup/data/child"
+  run "$AUTH_SCRIPT" backup/data
+  [ "$status" -eq 0 ]
+  grep -q "zfs receive backup/data/child" "$MOCK_ZFS_LOG"
+}
+
+@test "receive outside the allowed filesystem is denied" {
+  export SSH_ORIGINAL_COMMAND="zfs receive -F backup/other"
+  run "$AUTH_SCRIPT" backup/data
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs receive"
+}
+
+@test "receive restriction matches on dataset boundary not string prefix" {
+  export SSH_ORIGINAL_COMMAND="zfs receive backup/database"
+  run "$AUTH_SCRIPT" backup/data
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs receive"
+}
+
 # --- Denied: wrong zfs subcommands ---
 
 @test "denies zfs destroy" {

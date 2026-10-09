@@ -7,6 +7,23 @@ set -e
 #
 # Use this in ~/.ssh/authorized_keys
 # command="/path/to/authorized_keys_commands.sh",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa .........
+#
+# An optional argument restricts zfs receive to one filesystem and its
+# descendants (recommended -- without it the key may receive -F into ANY
+# dataset):
+# command="/path/to/authorized_keys_commands.sh backup/data",... ssh-rsa ...
+
+ALLOWED_FS=$1
+
+# Is $1 the allowed filesystem or a descendant of it?  With no restriction
+# configured, everything is allowed (legacy behavior).
+fs_allowed() {
+  [ -z "$ALLOWED_FS" ] && return 0
+  case "$1" in
+    "$ALLOWED_FS"|"$ALLOWED_FS"/*) return 0 ;;
+  esac
+  return 1
+}
 
 set -f
 # shellcheck disable=SC2086  # word splitting is the point; set -f blocks globs
@@ -33,6 +50,15 @@ if [ "$1" = "/sbin/zfs" ] || [ "$1" = "zfs" ]; then
       ;;
 
     "receive")
+        if [ "$3" = "-F" ]; then
+          TARGETFS=$4
+        else
+          TARGETFS=$3
+        fi
+        if ! fs_allowed "$TARGETFS"; then
+          echo "receive into '$TARGETFS' not allowed" >&2
+          exit 1
+        fi
         if [ "$3" = "-F" ]; then
           if [ -n "$PIGZ" ]; then
             pigz -d | "$1" "$2" "$3" "$4"

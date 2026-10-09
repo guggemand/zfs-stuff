@@ -116,6 +116,18 @@ mutate_and_test "$AK" "pmut 's/\"receive\"\)/\"BROKEN\")/' $AK" \
 mutate_and_test "$AK" "pmut 's/\"\\\$1\" \"\\\$2\" \"\\\$3\" \"\\\$4\"/\"\\\$1\" \"\\\$2\" \"\\\$3\"/' $AK" \
   "allows zfs receive -F with filesystem" "$AKT"
 
+# Receive target restriction
+mutate_and_test "$AK" "pmut 's/\"\\\$ALLOWED_FS\"\|/\"BROKEN\"|/' $AK" \
+  "receive into the allowed filesystem is allowed when restricted" "$AKT"
+mutate_and_test "$AK" "pmut 's/\"\\\$ALLOWED_FS\"\/\*/\"BROKEN\"/' $AK" \
+  "receive into a descendant of the allowed filesystem is allowed" "$AKT"
+# Make the deny path always allow
+mutate_and_test "$AK" "pmut 's/^  return 1/  return 0/' $AK" \
+  "receive outside the allowed filesystem is denied" "$AKT"
+# Turn the boundary-safe /* into a bare string-prefix *
+mutate_and_test "$AK" "pmut 's/\"\\\$ALLOWED_FS\"\/\*/\"\\\$ALLOWED_FS\"\*/' $AK" \
+  "receive restriction matches on dataset boundary not string prefix" "$AKT"
+
 # Break pigz detection -- change the match string
 mutate_and_test "$AK" "pmut 's/pigz -d \\|/BROKEN/' $AK" \
   "allows pigz prefix with zfs receive" "$AKT"
