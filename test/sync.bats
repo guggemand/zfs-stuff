@@ -73,15 +73,38 @@ add_remote_snap() {
 
 # --- Lock detection ---
 
-@test "exits 2 when sync is already running" {
+@test "exits 2 quietly when a live sync is already running" {
   # Add snapshots so the script would succeed if not for the running check
   add_local_snap "tank/data@snap1" "1000"
   add_remote_snap "backup/data@snap1" "1000"
-  export MOCK_ZFS_PROP_RUNNING="1"
+  # Lock held by a live process (this test shell) -- benign overlap
+  export MOCK_ZFS_PROP_RUNNING="$$"
   run "$SYNC" tank/data
   [ "$status" -eq 2 ]
+  # Benign overlap must stay quiet when not on a TTY, or cron mails on
+  # every sync that outlasts its interval
+  [ -z "$output" ]
   # Verify it stopped before listing snapshots
   log_not_contains "$MOCK_ZFS_LOG" "zfs list -t snapshot"
+}
+
+@test "clears a stale lock and syncs when the lock holder is dead" {
+  add_local_snap "tank/data@snap1" "1000"
+  add_remote_snap "backup/data@snap1" "1000"
+
+  # Take a PID that is guaranteed dead: spawn and reap a short-lived process
+  sh -c 'true' &
+  DEAD_PID=$!
+  wait "$DEAD_PID"
+  export MOCK_ZFS_PROP_RUNNING="$DEAD_PID"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+  # The recovery is warned about once (visible in cron mail)
+  [[ "$output" == *"Clearing stale sync lock"* ]]
+  # The sync proceeded: took a fresh lock and released it
+  grep -Eq "zfs set dlx.dk.sync:running=[0-9]+ tank/data" "$MOCK_ZFS_LOG"
+  grep -q "zfs inherit dlx.dk.sync:running tank/data" "$MOCK_ZFS_LOG"
 }
 
 # --- Snapshot validation ---
@@ -144,7 +167,7 @@ add_remote_snap() {
   [ "$status" -eq 0 ]
 
   # Verify the script actually ran (set the lock, listed snapshots)
-  grep -q "set dlx.dk.sync:running=1" "$MOCK_ZFS_LOG"
+  grep -Eq "set dlx.dk.sync:running=[0-9]+ tank/data" "$MOCK_ZFS_LOG"
   log_not_contains "$MOCK_ZFS_LOG" "zfs send"
   log_not_contains "$MOCK_REMOTE_LOG" "remote_zfs receive"
 }
@@ -245,7 +268,7 @@ add_remote_snap() {
   [ "$status" -eq 0 ]
 
   # Verify the script actually ran
-  grep -q "set dlx.dk.sync:running=1" "$MOCK_ZFS_LOG"
+  grep -Eq "set dlx.dk.sync:running=[0-9]+ tank/data" "$MOCK_ZFS_LOG"
   log_not_contains "$MOCK_ZFS_LOG" "zfs send"
   log_not_contains "$MOCK_REMOTE_LOG" "remote_zfs receive"
 }
@@ -261,7 +284,7 @@ add_remote_snap() {
   run "$SYNC" tank/data
   [ "$status" -eq 0 ]
 
-  grep -q "set dlx.dk.sync:running=1 tank/data" "$MOCK_ZFS_LOG"
+  grep -Eq "set dlx.dk.sync:running=[0-9]+ tank/data" "$MOCK_ZFS_LOG"
   grep -q "inherit dlx.dk.sync:running tank/data" "$MOCK_ZFS_LOG"
 }
 

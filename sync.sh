@@ -71,16 +71,22 @@ if [ "$REMOTECMD" = "-" ]; then
   exit 1
 fi
 
+# The lock property holds the PID of the sync that took it, so a later run
+# can tell a live sync (benign overlap, stay quiet for cron) from a stale
+# lock left behind by a crash (warn once, clear, continue).
 RUNNING=$($LOCALCMD get -H -o value -s local dlx.dk.sync:running "$LOCALFS")
 
 if [ -n "$RUNNING" ] && [ "$RUNNING" != "-" ]; then
-  if [ -t 1 ]; then
-    echo "Last sync is still running!"
+  if kill -0 "$RUNNING" 2>/dev/null; then
+    if [ -t 1 ]; then
+      echo "Last sync is still running!"
+    fi
+    exit 2
   fi
-  exit 2
+  echo "Clearing stale sync lock for $LOCALFS (pid $RUNNING is gone)" >&2
 fi
 
-$LOCALCMD set dlx.dk.sync:running=1 "$LOCALFS"
+$LOCALCMD set dlx.dk.sync:running=$$ "$LOCALFS"
 trap "$LOCALCMD inherit dlx.dk.sync:running $LOCALFS" 0 1 2 3 15
 
 # Find newest snapshots.  -d 1 lists only this filesystem's own snapshots;

@@ -39,6 +39,16 @@ the recursive list and filters out the child datasets itself, so senders and
 receivers can be upgraded in any order. The current
 `authorized_keys_commands.sh` accepts both forms.
 
+The lock property stores the PID of the running sync. When a sync starts
+while the lock is held by a live process (a previous sync that simply hasn't
+finished yet), it exits 2 without output, so cron stays quiet on benign
+overlap. If the lock holder is gone (crash, power loss), the next run warns
+on stderr, clears the stale lock, and syncs normally. Manual cleanup with
+`zfs inherit dlx.dk.sync:running tank/data` is only needed in the unlikely
+case that the stored PID has been recycled by an unrelated long-lived
+process (upgrades from versions that stored `1` in the lock look like this
+too, since PID 1 is always alive).
+
 ```
 sync.sh <filesystem>
 ```

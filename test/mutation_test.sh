@@ -315,7 +315,10 @@ mutate_and_test "$SY" "pmut 's/Missing dlx.dk.sync:remotecmd//' $SY" \
 
 # Running lock
 mutate_and_test "$SY" "pmut 's/if \\[ -n \"\\\$RUNNING\" \\] && \\[ \"\\\$RUNNING\" != \"-\" \\]/if false/' $SY" \
-  "exits 2 when sync is already running" "$SYT"
+  "exits 2 quietly when a live sync is already running" "$SYT"
+# Treat every lock holder as alive -- stale locks are never cleared
+mutate_and_test "$SY" "pmut 's/kill -0 \"\\\$RUNNING\"/true/' $SY" \
+  "clears a stale lock and syncs when the lock holder is dead" "$SYT"
 
 mutate_and_test "$SY" "pmut 's/\\[ -z \"\\\$LSNAPS\" \\]/false/' $SY" \
   "exits 2 when no local snapshots exist" "$SYT"
