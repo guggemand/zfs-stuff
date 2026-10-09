@@ -55,6 +55,14 @@ add_remote_snap() {
   [[ "$output" == *"Invalid FileSystem"* ]]
 }
 
+@test "runs without pv installed" {
+  # Under set -e a failing command substitution in an assignment aborts the
+  # script, so a missing pv must not end it silently.
+  run env -u PV PATH=/nonexistent /bin/bash "$SYNC"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Usage:"* ]]
+}
+
 # --- Property validation ---
 
 @test "exits with error when remotefs property is missing" {

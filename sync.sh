@@ -37,7 +37,7 @@ set -o pipefail
 #
 
 LOCALCMD=${LOCALCMD:-/sbin/zfs}
-PV=${PV:-$(command -v pv)}
+PV=${PV:-$(command -v pv || true)}
 
 if [ -z "$1" ]; then
   echo "Usage: $0 FileSystem" >&2
