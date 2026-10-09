@@ -94,27 +94,21 @@ echo "=== authorized_keys_commands.sh ==="
 AK=authorized_keys_commands.sh
 AKT=test/authorized_keys_commands.bats
 
-mutate_and_test "$AK" "pmut 's/\"list\"\)/\"BROKEN\")/' $AK" \
+# Break each allowed form's match string
+mutate_and_test "$AK" "pmut 's/-o name -d 1 -H\"\)/-o name BROKEN\")/' $AK" \
   "allows zfs list with correct arguments" "$AKT"
-
-# Break the -d 1 -H match string
-mutate_and_test "$AK" "pmut 's/-o name -d 1 -H/-o name BROKEN/' $AK" \
-  "allows zfs list with correct arguments" "$AKT"
-
-# Break the legacy -rH match string
-mutate_and_test "$AK" "pmut 's/-t snapshot -s creation -o name -rH/BROKEN/' $AK" \
+mutate_and_test "$AK" "pmut 's/-o name -rH\"\)/-o name BROKEN\")/' $AK" \
   "allows legacy recursive zfs list during rollout" "$AKT"
-
-# Accept any path so /usr/bin/zfs would be allowed
-mutate_and_test "$AK" "pmut 's/if \\[ \"\\\$1\" = \"\/sbin\/zfs\" \\] \\|\\| \\[ \"\\\$1\" = \"zfs\" \\]/if true/' $AK" \
-  "only accepts /sbin/zfs or zfs as command" "$AKT"
-
-mutate_and_test "$AK" "pmut 's/\"receive\"\)/\"BROKEN\")/' $AK" \
+mutate_and_test "$AK" "pmut 's/^  \"receive\"\)/  \"BROKEN\")/' $AK" \
   "allows zfs receive with filesystem" "$AKT"
-
-# Drop $4 from the -F branch so filesystem is lost
-mutate_and_test "$AK" "pmut 's/\"\\\$1\" \"\\\$2\" \"\\\$3\" \"\\\$4\"/\"\\\$1\" \"\\\$2\" \"\\\$3\"/' $AK" \
+mutate_and_test "$AK" "pmut 's/^  \"receive -F\"\)/  \"BROKEN\")/' $AK" \
   "allows zfs receive -F with filesystem" "$AKT"
+
+# Accept any binary, so /usr/bin/zfs would be allowed
+mutate_and_test "$AK" "pmut 's/^  \\*\\) deny ;;\\n/  *) ZFS=\\\${CMD%% *} ;;\\n/' $AK" \
+  "only accepts /sbin/zfs or zfs as command" "$AKT"
+mutate_and_test "$AK" "pmut 's/\"\/sbin\/zfs \"\\*\\) ZFS=\/sbin\/zfs/\"\/sbin\/zfs \"*) deny/' $AK" \
+  "runs /sbin/zfs when the sender asks for /sbin/zfs" "$AKT"
 
 # Receive target restriction
 mutate_and_test "$AK" "pmut 's/\"\\\$ALLOWED_FS\"\|/\"BROKEN\"|/' $AK" \
@@ -129,35 +123,31 @@ mutate_and_test "$AK" "pmut 's/\"\\\$ALLOWED_FS\"\/\*/\"\\\$ALLOWED_FS\"\*/' $AK
   "receive restriction matches on dataset boundary not string prefix" "$AKT"
 
 # Break pigz detection -- change the match string
-mutate_and_test "$AK" "pmut 's/pigz -d \\|/BROKEN/' $AK" \
+mutate_and_test "$AK" "pmut 's/\"pigz -d \\| \"\\*\\)/\"BROKEN\"*)/' $AK" \
   "allows pigz prefix with zfs receive" "$AKT"
-mutate_and_test "$AK" "pmut 's/pigz -d \\|/BROKEN/' $AK" \
+mutate_and_test "$AK" "pmut 's/\"pigz -d \\| \"\\*\\)/\"BROKEN\"*)/' $AK" \
   "allows pigz prefix with zfs receive -F" "$AKT"
-mutate_and_test "$AK" "pmut 's/pigz -d \\|/BROKEN/' $AK" \
-  "allows pigz prefix with zfs list" "$AKT"
+# Allow pigz in front of list
+mutate_and_test "$AK" "pmut 's/\\[ -z \"\\\$PIGZ\" \\] \\|\\| deny/true/' $AK" \
+  "denies pigz prefix with zfs list" "$AKT"
 
-# Deny tests -- remove the "not allowed" exit at the end so everything is accepted
-for TEST in "denies zfs destroy" "denies zfs send" "denies zfs set" "denies zfs rollback" "denies zfs create"; do
-  mutate_and_test "$AK" "pmut 's/echo.*not allowed.*$/exit 0/' $AK" "$TEST" "$AKT"
+# Deny tests -- make the final deny accept everything
+for TEST in "denies zfs destroy" "denies zfs send" "denies zfs set" "denies zfs rollback" "denies zfs create" \
+            "denies zfs list with wrong flags" "denies zfs list without -rH" \
+            "denies arbitrary commands" "denies shell commands" "denies empty command" \
+            "command appended after a space is rejected" "trailing pipe injection after list is rejected" \
+            "extra flags before the filesystem are rejected"; do
+  mutate_and_test "$AK" "pmut 's/^  echo .*not allowed.* >&2\\n/  exec \"\\\$ZFS\" \"\\\$@\"\\n/' $AK" "$TEST" "$AKT"
 done
 
-# Break list arg validation by accepting any list arguments
-mutate_and_test "$AK" "pmut 's/-t snapshot -s creation -o name -rH/\\\$3 \\\$4 \\\$5 \\\$6 \\\$7 \\\$8 \\\$9/' $AK" \
-  "denies zfs list with wrong flags" "$AKT"
-mutate_and_test "$AK" "pmut 's/-t snapshot -s creation -o name -rH/\\\$3 \\\$4 \\\$5 \\\$6 \\\$7 \\\$8 \\\$9/' $AK" \
-  "denies zfs list without -rH" "$AKT"
-
-# Accept all commands
-for TEST in "denies arbitrary commands" "denies shell commands" "denies empty command"; do
-  mutate_and_test "$AK" "pmut 's/echo.*not allowed.*$/exit 0/' $AK" "$TEST" "$AKT"
+# Character-class check on the filesystem name
+for TEST in "semicolon in filesystem name is rejected" "glob characters in filesystem name are rejected" \
+            "denies an empty filesystem argument"; do
+  mutate_and_test "$AK" "pmut 's/^  \"\"\\|\\*\\[!A-Za-z0-9_\\/.:\@#-\\]\\*\\) deny ;;/  NOTHING) deny ;;/' $AK" "$TEST" "$AKT"
 done
-
-mutate_and_test "$AK" "pmut 's/\"receive\"\)/\"BROKEN\")/' $AK" \
-  "semicolon injection is harmless -- extra args silently dropped" "$AKT"
-# Pipe injection test verifies extra args are dropped, not that the whitelist works
-skip_test "pipe injection after list is harmless -- extra args silently dropped"
-mutate_and_test "$AK" "comment_line 'set -f' $AK" \
-  "glob characters in filesystem name are not expanded" "$AKT"
+# Drop @ from the allowed characters
+mutate_and_test "$AK" "pmut 's/:\@#-/:#-/' $AK" \
+  "allows snapshot name with @" "$AKT"
 
 echo ""
 echo "=== check_zfs_snapshots.sh ==="

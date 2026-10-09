@@ -67,11 +67,22 @@ teardown() {
   grep -q "zfs receive -F" "$MOCK_ZFS_LOG"
 }
 
-@test "allows pigz prefix with zfs list" {
+@test "denies pigz prefix with zfs list" {
+  # sendwithpigz.sh only wraps the receive stream in pigz, never a list
   export SSH_ORIGINAL_COMMAND="pigz -d | zfs list -t snapshot -s creation -o name -rH tank/data"
   run "$AUTH_SCRIPT"
-  [ "$status" -eq 0 ]
-  grep -q "zfs list" "$MOCK_ZFS_LOG"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs list"
+}
+
+@test "runs /sbin/zfs when the sender asks for /sbin/zfs" {
+  # sendwithpigz.sh sends "/sbin/zfs ...".  The test host has no /sbin/zfs
+  # (or a real one, which fails on tank/data) -- either way the command must
+  # be accepted and executed, not denied.
+  export SSH_ORIGINAL_COMMAND="/sbin/zfs list -t snapshot -s creation -o name -d 1 -H tank/data"
+  run "$AUTH_SCRIPT"
+  [[ "$output" != *"not allowed"* ]]
 }
 
 # --- Receive target restriction (optional script argument) ---
@@ -183,49 +194,63 @@ teardown() {
 }
 
 # --- Command injection safety ---
+#
+# Anything beyond the exact allowed forms is rejected outright -- extra
+# arguments are not silently dropped.
 
-@test "semicolon injection is harmless -- extra args silently dropped" {
-  # "set --" splits by whitespace, so "; rm -rf /" becomes extra positional
-  # parameters that are never used. The semicolon becomes part of the
-  # filesystem name ("tank/data;") which zfs would reject, but the
-  # injected command is never executed.
+@test "semicolon in filesystem name is rejected" {
+  # No spaces, so the command shape is valid -- only the character check
+  # on the dataset name stops it
+  export SSH_ORIGINAL_COMMAND="zfs receive tank/data;reboot"
+  run "$AUTH_SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "command appended after a space is rejected" {
   export SSH_ORIGINAL_COMMAND="zfs receive tank/data; rm -rf /"
   run "$AUTH_SCRIPT"
-  [ "$status" -eq 0 ]
-  # Verify "rm" was never executed -- only zfs was called
-  grep -q "zfs receive" "$MOCK_ZFS_LOG"
-  if grep -q "rm" "$MOCK_ZFS_LOG"; then
-    echo "Injected 'rm' command was executed" >&2
-    return 1
-  fi
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
 }
 
-@test "pipe injection after list is harmless -- extra args silently dropped" {
-  # The pipe character "|" is not interpreted by the shell since the script
-  # uses set -- (word splitting only). Extra positional parameters beyond
-  # ${10} are simply ignored.
+@test "trailing pipe injection after list is rejected" {
   export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -rH tank/data | cat /etc/passwd"
   run "$AUTH_SCRIPT"
-  [ "$status" -eq 0 ]
-  # Verify only the zfs list command was executed, not "cat /etc/passwd"
-  grep -q "zfs list" "$MOCK_ZFS_LOG"
-  if grep -q "cat" "$MOCK_ZFS_LOG"; then
-    echo "Injected 'cat' command was executed" >&2
-    return 1
-  fi
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
 }
 
-# --- Glob safety (set -f) ---
+@test "extra flags before the filesystem are rejected" {
+  export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -rH -t all tank/data"
+  run "$AUTH_SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
 
-@test "glob characters in filesystem name are not expanded" {
-  # Create files matching "tank/*" so the glob would expand without set -f
-  mkdir -p "$TEST_TMPDIR/tank"
-  touch "$TEST_TMPDIR/tank/vol1" "$TEST_TMPDIR/tank/vol2"
-
+@test "glob characters in filesystem name are rejected" {
   export SSH_ORIGINAL_COMMAND="zfs receive tank/*"
-  # Run from the temp dir so the glob could match real files
-  run bash -c "cd $TEST_TMPDIR && $AUTH_SCRIPT"
+  run "$AUTH_SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "allows snapshot name with @" {
+  export SSH_ORIGINAL_COMMAND="zfs receive tank/data@snap-1"
+  run "$AUTH_SCRIPT"
   [ "$status" -eq 0 ]
-  # Verify the literal * was passed to zfs, not expanded to "tank/vol1 tank/vol2"
-  grep -q 'zfs receive tank/\*' "$MOCK_ZFS_LOG"
+  grep -q "zfs receive tank/data@snap-1" "$MOCK_ZFS_LOG"
+}
+
+@test "denies an empty filesystem argument" {
+  export SSH_ORIGINAL_COMMAND="zfs receive "
+  run "$AUTH_SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
 }
