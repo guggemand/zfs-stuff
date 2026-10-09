@@ -78,10 +78,11 @@ teardown() {
 
 @test "runs /sbin/zfs when the sender asks for /sbin/zfs" {
   # sendwithpigz.sh sends "/sbin/zfs ...".  The test host has no /sbin/zfs
-  # (or a real one, which fails on tank/data) -- either way the command must
-  # be accepted and executed, not denied.
+  # (exit 127) or a real one, which fails on tank/data -- either way the
+  # command must be accepted and executed, not denied.  The wrapper keeps
+  # bats from warning about exit 127 (BW01) without pinning an exit code.
   export SSH_ORIGINAL_COMMAND="/sbin/zfs list -t snapshot -s creation -o name -d 1 -H tank/data"
-  run "$AUTH_SCRIPT"
+  run sh -c '"$1" || true' sh "$AUTH_SCRIPT"
   [[ "$output" != *"not allowed"* ]]
 }
 
