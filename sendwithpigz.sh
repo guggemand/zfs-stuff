@@ -16,8 +16,8 @@ if [ -z "$1" ] || [ -z "$2" ]; then
 fi
 
 REMOTEHOST=$1
-MBUFFER=$(command -v mbuffer)
 PATH=$PATH:/usr/local/bin:/usr/local/sbin
+MBUFFER=$(command -v mbuffer || true)
 
 shift
 

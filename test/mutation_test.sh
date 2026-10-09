@@ -408,6 +408,10 @@ mutate_and_test "$SP" "pmut 's/pigz \\| ssh/cat \\| echo BROKEN/' $SP" \
 mutate_and_test "$SP" "pmut 's/\\\$MBUFFER -m 1G/echo BROKEN/' $SP" \
   "receive with mbuffer calls mbuffer, pigz and ssh" "$SPT"
 
+# Removing "|| true" restores the set -e abort when mbuffer is missing
+mutate_and_test "$SP" "pmut 's/ \\|\\| true//' $SP" \
+  "receive works when mbuffer is not installed at all" "$SPT"
+
 echo ""
 echo "=== syncall.sh ==="
 SA=syncall.sh

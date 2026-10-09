@@ -100,6 +100,23 @@ teardown() {
   grep -q "ssh user@remotehost pigz -d | /sbin/zfs receive -F tank/data" "$SSH_LOG"
 }
 
+@test "receive works when mbuffer is not installed at all" {
+  # Regression: `MBUFFER=$(command -v mbuffer)` under `set -e` used to abort
+  # the whole script (exit 127) when mbuffer was absent, making the fallback
+  # branch unreachable in production.
+  rm "$MOCK_BIN/mbuffer"
+
+  run env PATH="$MOCK_BIN" "$SENDWITHPIGZ" user@remotehost receive -F tank/data </dev/null
+  [ "$status" -eq 0 ]
+
+  # mbuffer was never called
+  [ ! -s "$MBUFFER_LOG" ]
+
+  # pigz and ssh still ran with the correct remote command
+  [ -f "$PIGZ_LOG" ]
+  grep -q "ssh user@remotehost pigz -d | /sbin/zfs receive -F tank/data" "$SSH_LOG"
+}
+
 # --- receive subcommand with mbuffer ---
 
 @test "receive with mbuffer calls mbuffer, pigz and ssh" {
