@@ -250,6 +250,10 @@ mutate_and_test "$CL" "comment_line '\\$ZFS bookmark' $CL" \
 # Bookmark retention -- test has no bookmarks in data, so list type change is neutral
 skip_test "bookmark retention does not bookmark already-kept snapshots"
 
+# Always take the create branch, ignoring the existence check
+mutate_and_test "$CL" "pmut 's/if ! \\\$ZFS list -t bookmark/if true || \\\$ZFS list -t bookmark/' $CL" \
+  "rerun after partial failure does not recreate an existing bookmark" "$CLT"
+
 # Duplicate warning
 mutate_and_test "$CL" "pmut 's/echo \"Warning: duplicate/#echo \"Warning: duplicate/' $CL" \
   "warns and skips snapshots with duplicate creation times" "$CLT"

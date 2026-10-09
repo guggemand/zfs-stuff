@@ -239,7 +239,12 @@ for i in $TIMES; do
           echo "$SNAP saved as bookmark"
         fi
         if [ $USEBM -eq 1 ]; then
-          $ZFS bookmark "$SNAP" "${SNAP/@/#}"
+          # Skip creation if the bookmark already exists (rerun after a
+          # partial failure) -- zfs bookmark would fail and abort the prune.
+          BM=${SNAP/@/#}
+          if ! $ZFS list -t bookmark -H -o name "$BM" > /dev/null 2>&1; then
+            $ZFS bookmark "$SNAP" "$BM"
+          fi
         fi
       fi
       if [ -t 1 ]; then

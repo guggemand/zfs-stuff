@@ -242,6 +242,29 @@ teardown() {
   was_not_destroyed "snap-14"
 }
 
+@test "rerun after partial failure does not recreate an existing bookmark" {
+  # 3 daily + 2 bookmark days.  snap-12 and snap-11 fall in the bookmark
+  # window; the bookmark for snap-12 already exists from an interrupted
+  # earlier run (offset +1s to avoid the duplicate-creation-time skip).
+  for i in $(seq 0 4); do
+    DAY=$(printf '%02d' $((15 - i)))
+    T=$(epoch "2025-01-$DAY 06:00:00")
+    add_snap "tank/data@snap-$DAY" "$T"
+  done
+  add_bookmark "tank/data#snap-12" "$(($(epoch '2025-01-12 06:00:00') + 1))"
+
+  run "$CLEANSNAP" tank/data 3:2 0 0 0
+  [ "$status" -eq 0 ]
+
+  # snap-12's bookmark already exists -- must not be created again
+  log_not_contains "$MOCK_ZFS_LOG" "zfs bookmark tank/data@snap-12"
+  # snap-11 gets a fresh bookmark as usual
+  grep -q "zfs bookmark tank/data@snap-11 tank/data#snap-11" "$MOCK_ZFS_LOG"
+  # both snapshots in the bookmark window are still pruned
+  was_destroyed "snap-12"
+  was_destroyed "snap-11"
+}
+
 # --- Duplicate creation time ---
 
 @test "warns and skips snapshots with duplicate creation times" {

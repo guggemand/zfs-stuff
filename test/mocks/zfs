@@ -56,6 +56,15 @@ case "$1" in
       exit 1
     fi
 
+    # zfs list -t bookmark -H -o name <bookmark>  (bookmark existence check)
+    if [ "$3" = "bookmark" ]; then
+      LAST="${*: -1}"
+      if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
+        grep -q "^${LAST}	" "$MOCK_ZFS_SNAPSHOTS" && exit 0
+      fi
+      exit 1
+    fi
+
     # zfs list -t <type> ... -o name,creation ... -s creation <fs>
     # Matches both "-o name,creation -p -s creation" and "-p -o name,creation -s creation".
     # All these callers use -d 1, so filter to the target fs's own snapshots.
