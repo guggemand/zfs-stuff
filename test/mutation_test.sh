@@ -9,6 +9,29 @@ FAIL=0
 SKIP=0
 ERRORS=""
 
+# Restore any in-flight mutation if we are interrupted -- mutations are
+# applied in place to the real (git-tracked) scripts.
+restore_mutations() {
+  for f in *.mut.bak; do
+    [ -e "$f" ] || continue
+    mv "$f" "${f%.mut.bak}"
+    echo "Restored ${f%.mut.bak} from interrupted mutation" >&2
+  done
+}
+trap restore_mutations EXIT
+# A function trap on INT/TERM would let bash carry on; exit so the EXIT
+# trap restores and the run actually stops.
+trap 'exit 130' INT TERM
+
+# Mutation results are meaningless unless the unmutated suite is green.
+echo "=== Baseline: running full test suite ==="
+if ! bats test/ > /dev/null 2>&1; then
+  echo "Baseline bats run FAILED -- fix the test suite before mutation testing" >&2
+  exit 1
+fi
+echo "Baseline OK"
+echo ""
+
 # Run a single test with a mutation applied
 # Usage: mutate_and_test <script> <mutation_cmd> <test_name> <test_file>
 mutate_and_test() {
@@ -67,7 +90,7 @@ comment_line() { perl -i -pe "s/^(\\s*)(.*$1)/\$1#\$2/" "$2"; }
 # Helper: use perl multiline mode
 pmut0() { perl -i -0pe "$1" "$2"; }
 
-echo "=== authorized_keys_commands.sh (20 tests) ==="
+echo "=== authorized_keys_commands.sh ==="
 AK=authorized_keys_commands.sh
 AKT=test/authorized_keys_commands.bats
 
@@ -117,7 +140,7 @@ mutate_and_test "$AK" "comment_line 'set -f' $AK" \
   "glob characters in filesystem name are not expanded" "$AKT"
 
 echo ""
-echo "=== check_zfs_snapshots.sh (17 tests) ==="
+echo "=== check_zfs_snapshots.sh ==="
 CS=check_zfs_snapshots.sh
 CST=test/check_zfs_snapshots.bats
 
@@ -159,7 +182,7 @@ mutate_and_test "$CS" "pmut 's/-s creation/-s name/' $CS" \
   "uses creation time not name to find newest snapshot" "$CST"
 
 echo ""
-echo "=== cleansnap.sh (27 tests) ==="
+echo "=== cleansnap.sh ==="
 CL=cleansnap.sh
 CLT=test/cleansnap.bats
 
@@ -253,7 +276,7 @@ skip_test "exits with error when no snapshots exist"
 
 
 echo ""
-echo "=== snap.sh (5 tests) ==="
+echo "=== snap.sh ==="
 SN=snap.sh
 SNT=test/snap.bats
 
@@ -269,7 +292,7 @@ mutate_and_test "$SN" "pmut 's/TIME=\\\$\\(\\\$DATE/TIME=\\\$(date/' $SN" \
   "snapshot timestamp comes from the DATE command" "$SNT"
 
 echo ""
-echo "=== sync.sh (16 tests) ==="
+echo "=== sync.sh ==="
 SY=sync.sh
 SYT=test/sync.bats
 
@@ -326,7 +349,7 @@ mutate_and_test "$SY" "comment_line 'set -o pipefail' $SY" \
   "incremental sync exits 2 when zfs send fails mid-pipeline" "$SYT"
 
 echo ""
-echo "=== sendwithpigz.sh (6 tests) ==="
+echo "=== sendwithpigz.sh ==="
 SP=sendwithpigz.sh
 SPT=test/sendwithpigz.bats
 
@@ -344,7 +367,7 @@ mutate_and_test "$SP" "pmut 's/\\\$MBUFFER -m 1G/echo BROKEN/' $SP" \
   "receive with mbuffer calls mbuffer, pigz and ssh" "$SPT"
 
 echo ""
-echo "=== syncall.sh (7 tests) ==="
+echo "=== syncall.sh ==="
 SA=syncall.sh
 SAT=test/syncall.bats
 
@@ -375,3 +398,5 @@ if [ -n "$ERRORS" ]; then
   echo "Problems:"
   printf "$ERRORS\n"
 fi
+
+[ "$FAIL" -eq 0 ] || exit 1
