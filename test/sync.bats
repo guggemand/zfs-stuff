@@ -169,6 +169,23 @@ add_remote_snap() {
   grep -q "zfs send -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
 }
 
+@test "pv gets the stream size so it can show an ETA" {
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+  export MOCK_ZFS_SEND_SIZE=12345
+
+  # pv is only used on a terminal
+  export PV="$TEST_TMPDIR/pv"
+  printf '#!/bin/sh\necho "pv $*" >> "%s/pv.log"\ncat\n' "$TEST_TMPDIR" > "$PV"
+  chmod +x "$PV"
+  run script -qec "$SYNC tank/data" /dev/null
+  [ "$status" -eq 0 ]
+
+  [ "$(grep -c "^pv -s 12345$" "$TEST_TMPDIR/pv.log")" -eq 2 ]
+  grep -qx "zfs send -nvP tank/data@snap1" "$MOCK_ZFS_LOG"
+  grep -qx "zfs send -nvP -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
+}
+
 @test "initial sync sends every snapshot, not just the oldest" {
   add_local_snap "tank/data@snap1" "1000"
   add_local_snap "tank/data@snap2" "2000"

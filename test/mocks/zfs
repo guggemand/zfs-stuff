@@ -14,6 +14,9 @@
 #   MOCK_ZFS_PROP_SENDARGS  - value for dlx.dk.sync:sendargs
 #   MOCK_ZFS_PROP_RUNNING   - value for dlx.dk.sync:running
 #
+# "zfs send -nvP" prints a parsable size estimate:
+#   MOCK_ZFS_SEND_SIZE      - size to report (default 4096)
+#
 # Failure injection:
 #   MOCK_ZFS_SEND_FAIL      - if set, "zfs send" emits a stream then exits 1
 #
@@ -168,6 +171,10 @@ case "$1" in
     ;;
 
   send)
+    if [[ " $CMD " == *" -nvP "* ]]; then
+      printf 'size\t%s\n' "${MOCK_ZFS_SEND_SIZE:-4096}"
+      exit 0
+    fi
     echo "SENDSTREAM"
     if [ -n "$MOCK_ZFS_SEND_FAIL" ]; then
       exit 1

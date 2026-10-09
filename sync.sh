@@ -139,6 +139,17 @@ if [ -n "$RSNAP" ]; then
   fi
 fi
 
+# Run a send through pv.  A dry run with -P gives the stream size, so pv
+# can show percentage and ETA; without it pv still shows bytes and rate.
+pv_send() {
+  local size pvargs=()
+  size=$($LOCALCMD send "${SENDARGS_ARR[@]}" -nvP "$@" 2>&1 | awk '$1 == "size" { print $2 }') || true
+  if [ -n "$size" ]; then
+    pvargs=(-s "$size")
+  fi
+  $LOCALCMD send "${SENDARGS_ARR[@]}" "$@" | $PV "${pvargs[@]}"
+}
+
 # Nothing to do when the remote already has the newest local snapshot.
 if [ -n "$RSNAP" ] && [ "$RSNAP" = "$LSNAP" ]; then
   exit
@@ -164,7 +175,7 @@ else
     fi
   fi
   if [ -t 1 ] && [ -x "$PV" ]; then
-    $LOCALCMD send "${SENDARGS_ARR[@]}" "$LOCALFS@$SNAP1" | $PV | $REMOTECMD receive "$REMOTEFS" || exit 2
+    pv_send "$LOCALFS@$SNAP1" | $REMOTECMD receive "$REMOTEFS" || exit 2
   else
     $LOCALCMD send "${SENDARGS_ARR[@]}" "$LOCALFS@$SNAP1" | $REMOTECMD receive "$REMOTEFS" || exit 2
   fi
@@ -173,7 +184,7 @@ fi
 for SNAP in ${LSNAPS##*@"$SNAP1"}; do
   SNAP2=${SNAP##*@}
   if [ -t 1 ] && [ -x "$PV" ]; then
-    $LOCALCMD send "${SENDARGS_ARR[@]}" -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $PV | $REMOTECMD receive -F "$REMOTEFS" || exit 2
+    pv_send -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $REMOTECMD receive -F "$REMOTEFS" || exit 2
   else
     $LOCALCMD send "${SENDARGS_ARR[@]}" -i "$LOCALFS@$SNAP1" "$LOCALFS@$SNAP2" | $REMOTECMD receive -F "$REMOTEFS" || exit 2
   fi

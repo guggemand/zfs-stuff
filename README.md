@@ -27,7 +27,7 @@ snap.sh <filesystem>
 Replicates snapshots from a local filesystem to a remote one using `zfs send | zfs receive` over SSH. Reads connection details from ZFS properties (see [Configuration](#configuration)).
 
 - Sends only incremental snapshots when the remote already has a common base
-- Uses `pv` for progress display if available and running interactively
+- Uses `pv` for progress display with ETA if available and running interactively
 - Sets a `dlx.dk.sync:running` lock property to prevent concurrent syncs
 - Only the named filesystem is synced -- snapshots of child datasets are
   ignored; give each child its own properties and sync it separately
