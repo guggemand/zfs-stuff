@@ -2,7 +2,7 @@
 # shellcheck disable=SC2086  # unquoted $ZFS is intentional
 set -e
 
-ZFS=/sbin/zfs
+ZFS=${ZFS:-/sbin/zfs}
 
 if [ -z "$1" ]; then
   echo "Usage: $0 FileSystem" >&2

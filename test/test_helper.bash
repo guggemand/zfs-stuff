@@ -17,6 +17,7 @@ CHECK_SCRIPT="$SCRIPT_DIR/check_zfs_snapshots.sh"
 CLEANSNAP="$SCRIPT_DIR/cleansnap.sh"
 SENDWITHPIGZ="$SCRIPT_DIR/sendwithpigz.sh"
 SNAP="$SCRIPT_DIR/snap.sh"
+SNAPANDSYNC="$SCRIPT_DIR/snapandsync.sh"
 SYNC="$SCRIPT_DIR/sync.sh"
 SYNCALL="$SCRIPT_DIR/syncall.sh"
 

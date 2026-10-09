@@ -413,6 +413,21 @@ mutate_and_test "$SP" "pmut 's/ \\|\\| true//' $SP" \
   "receive works when mbuffer is not installed at all" "$SPT"
 
 echo ""
+echo "=== snapandsync.sh ==="
+SS=snapandsync.sh
+SST=test/snapandsync.bats
+
+mutate_and_test "$SS" "pmut 's/\\[ -z \"\\\$1\" \\]/false/' $SS" \
+  "exits with error when no arguments given" "$SST"
+mutate_and_test "$SS" "pmut 's/if ! \\\$ZFS list -H/if \\\$ZFS list -H/' $SS" \
+  "exits with error for invalid filesystem" "$SST"
+mutate_and_test "$SS" "pmut 's/\\\$DIR\\/snap.sh \"\\\$1\"/true/' $SS" \
+  "runs snap.sh then sync.sh with the filesystem" "$SST"
+# Without set -e a failing snap.sh no longer stops the script
+mutate_and_test "$SS" "comment_line 'set -e' $SS" \
+  "does not run sync.sh when snap.sh fails" "$SST"
+
+echo ""
 echo "=== syncall.sh ==="
 SA=syncall.sh
 SAT=test/syncall.bats
