@@ -255,3 +255,162 @@ teardown() {
   [[ "$output" == *"not allowed"* ]]
   log_not_contains "$MOCK_ZFS_LOG" "zfs"
 }
+
+# --- --allow-send option ---
+
+@test "allows full send of a snapshot with --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs send tank/data@snap1"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs send tank/data@snap1" "$MOCK_ZFS_LOG"
+}
+
+@test "allows incremental send -i between snapshots with --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs send -i tank/data@a tank/data@b"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs send -i tank/data@a tank/data@b" "$MOCK_ZFS_LOG"
+}
+
+@test "allows send -I with --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs send -I tank/data@a tank/data@b"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs send -I tank/data@a tank/data@b" "$MOCK_ZFS_LOG"
+}
+
+@test "allows a bookmark as incremental source with --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs send -i tank/data#a tank/data@b"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs send -i tank/data#a tank/data@b" "$MOCK_ZFS_LOG"
+}
+
+@test "allows raw, compressed, large-block and embedded flags with --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs send -w -c -L -e -i tank/data@a tank/data@b"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs send -w -c -L -e -i tank/data@a tank/data@b" "$MOCK_ZFS_LOG"
+}
+
+@test "allows send from a descendant of the allowed filesystem" {
+  export SSH_ORIGINAL_COMMAND="zfs send -i tank/data/child@a tank/data/child@b"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs send -i tank/data/child@a tank/data/child@b" "$MOCK_ZFS_LOG"
+}
+
+@test "denies send without --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs send tank/data@snap1"
+  run "$AUTH_SCRIPT" tank/data
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "denies send with no arguments configured" {
+  export SSH_ORIGINAL_COMMAND="zfs send tank/data@snap1"
+  run "$AUTH_SCRIPT"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "--allow-send without a filesystem refuses every command" {
+  for cmd in "zfs send tank/data@snap1" "zfs receive tank/data" \
+             "zfs list -t snapshot -s creation -o name -d 1 -H tank/data"; do
+    export SSH_ORIGINAL_COMMAND="$cmd"
+    run "$AUTH_SCRIPT" --allow-send
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"requires a filesystem"* ]]
+  done
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "extra arguments in the key line refuse every command" {
+  export SSH_ORIGINAL_COMMAND="zfs receive backup/data"
+  run "$AUTH_SCRIPT" backup/data --allow-send
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"usage"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "denies send from outside the allowed filesystem" {
+  for snap in tank/other@snap1 tank/database@snap1; do
+    export SSH_ORIGINAL_COMMAND="zfs send $snap"
+    run "$AUTH_SCRIPT" --allow-send tank/data
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"send from '$snap' not allowed"* ]]
+  done
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "denies send of a filesystem instead of a snapshot" {
+  export SSH_ORIGINAL_COMMAND="zfs send tank/data"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "denies an incremental source from another dataset" {
+  for src in tank/other@a tank/data/child@a tank/data; do
+    export SSH_ORIGINAL_COMMAND="zfs send -i $src tank/data@b"
+    run "$AUTH_SCRIPT" --allow-send tank/data
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not allowed"* ]]
+  done
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "denies send flags outside the allowed set" {
+  for flags in "-R" "-wc" "-p" "-v" "-i" "-w -i tank/data@a -c"; do
+    export SSH_ORIGINAL_COMMAND="zfs send $flags tank/data@b"
+    run "$AUTH_SCRIPT" --allow-send tank/data
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not allowed"* ]]
+  done
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "denies pigz prefix with send" {
+  export SSH_ORIGINAL_COMMAND="pigz -d | zfs send tank/data@snap1"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not allowed"* ]]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+}
+
+@test "--allow-send limits zfs list to the allowed filesystem" {
+  export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -d 1 -H tank/other"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"list of 'tank/other' not allowed"* ]]
+  export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -rH tank/database"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 1 ]
+  log_not_contains "$MOCK_ZFS_LOG" "zfs"
+
+  export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -d 1 -H tank/data/child"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs list -t snapshot -s creation -o name -d 1 -H tank/data/child" "$MOCK_ZFS_LOG"
+}
+
+@test "zfs list stays unrestricted without --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -d 1 -H tank/other"
+  run "$AUTH_SCRIPT" backup/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs list -t snapshot -s creation -o name -d 1 -H tank/other" "$MOCK_ZFS_LOG"
+}
+
+@test "receive is still limited to the filesystem with --allow-send" {
+  export SSH_ORIGINAL_COMMAND="zfs receive -F tank/data/child"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 0 ]
+  grep -qx "zfs receive -F tank/data/child" "$MOCK_ZFS_LOG"
+  export SSH_ORIGINAL_COMMAND="zfs receive -F tank/other"
+  run "$AUTH_SCRIPT" --allow-send tank/data
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"receive into 'tank/other' not allowed"* ]]
+}

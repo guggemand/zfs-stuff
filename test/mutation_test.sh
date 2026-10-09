@@ -149,6 +149,46 @@ done
 mutate_and_test "$AK" "pmut 's/:\@#-/:#-/' $AK" \
   "allows snapshot name with @" "$AKT"
 
+# --allow-send
+mutate_and_test "$AK" "pmut 's/\\[ -n \"\\\$ALLOW_SEND\" \\] \\|\\| deny/true/' $AK" \
+  "denies send without --allow-send" "$AKT"
+mutate_and_test "$AK" "pmut 's/\"send\"\\|\"send \"\\*\\)/\"BROKEN\")/' $AK" \
+  "allows full send of a snapshot with --allow-send" "$AKT"
+mutate_and_test "$AK" "pmut 's/-w\\|-c\\|-L\\|-e\\)/-w|-c|-L)/' $AK" \
+  "allows raw, compressed, large-block and embedded flags with --allow-send" "$AKT"
+mutate_and_test "$AK" "pmut 's/-i\\|-I\\)/-i)/' $AK" \
+  "allows send -I with --allow-send" "$AKT"
+mutate_and_test "$AK" "pmut 's/\\*\@\\*\\|\\*#\\*\\) ;;/*\@*) ;;/' $AK" \
+  "allows a bookmark as incremental source with --allow-send" "$AKT"
+# Accept any flag
+mutate_and_test "$AK" "pmut 's/-w\\|-c\\|-L\\|-e\\)/-*)/' $AK" \
+  "denies send flags outside the allowed set" "$AKT"
+# Drop the single-word check on the incremental source
+mutate_and_test "$AK" "pmut 's/\"\"\\|\\*\" \"\\*\\|\\*\\[!A-Za-z0-9_\\/.:\@#-\\]\\*\\) deny ;;/NOTHING) deny ;;/' $AK" \
+  "denies send flags outside the allowed set" "$AKT"
+# Drop the same-dataset check on the incremental source
+mutate_and_test "$AK" "pmut 's/if \\[ \"\\\$\\{REST%%\\[\@#\\]\\*\\}\" != /if false \\&\\& [ x != /' $AK" \
+  "denies an incremental source from another dataset" "$AKT"
+# Drop the allowed-tree check on the sent snapshot
+mutate_and_test "$AK" "pmut 's/if ! fs_allowed \"\\\$\\{FS%%\@\\*\\}\"; then/if false; then/' $AK" \
+  "denies send from outside the allowed filesystem" "$AKT"
+# Accept a filesystem (no @) as the thing to send
+mutate_and_test "$AK" "pmut 's/^    \\*\@\\*\\) ;;/    *) ;;/' $AK" \
+  "denies send of a filesystem instead of a snapshot" "$AKT"
+# Allow pigz in front of send
+mutate_and_test "$AK" "pmut 's/^  \\[ -z \"\\\$PIGZ\" \\] \\|\\| deny/  true/' $AK" \
+  "denies pigz prefix with send" "$AKT"
+# Key line validation
+mutate_and_test "$AK" "pmut 's/\\{ \\[ -n \"\\\$ALLOW_SEND\" \\] && \\[ -z \"\\\$ALLOWED_FS\" \\]; \\}/false/' $AK" \
+  "--allow-send without a filesystem refuses every command" "$AKT"
+mutate_and_test "$AK" "pmut 's/\\[ \\\$# -gt 1 \\]/false/' $AK" \
+  "extra arguments in the key line refuse every command" "$AKT"
+# List restriction
+mutate_and_test "$AK" "pmut 's/if \\[ -n \"\\\$ALLOW_SEND\" \\] && ! fs_allowed/if false \\&\\& ! fs_allowed/' $AK" \
+  "--allow-send limits zfs list to the allowed filesystem" "$AKT"
+mutate_and_test "$AK" "pmut 's/if \\[ -n \"\\\$ALLOW_SEND\" \\] && ! fs_allowed/if ! fs_allowed/' $AK" \
+  "zfs list stays unrestricted without --allow-send" "$AKT"
+
 echo ""
 echo "=== check_zfs_snapshots.sh ==="
 CS=check_zfs_snapshots.sh

@@ -133,7 +133,7 @@ zfs set dlx.dk.sync:remotecmd="sendwithpigz.sh user@host" tank/data
 
 ### authorized_keys_commands.sh
 
-SSH forced-command wrapper for the **receiving** host's `~/.ssh/authorized_keys`. Restricts the SSH key to only allow `zfs list` and `zfs receive` commands (with optional `pigz` decompression), preventing arbitrary command execution.
+SSH forced-command wrapper for `~/.ssh/authorized_keys`. Restricts the SSH key to `zfs list` and `zfs receive` (with optional `pigz` decompression), and optionally `zfs send` (see `--allow-send` below), preventing arbitrary command execution.
 
 ```
 command="/path/to/authorized_keys_commands.sh",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa ...
@@ -146,6 +146,23 @@ roll back and overwrite *any* dataset on the receiving host):
 ```
 command="/path/to/authorized_keys_commands.sh backup/data",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa ...
 ```
+
+Add `--allow-send` in front of the filesystem to also allow `zfs send` of
+snapshots of that filesystem and its descendants, for example for a host that
+pulls backups:
+
+```
+command="/path/to/authorized_keys_commands.sh --allow-send tank/data",no-port-forwarding,no-X11-forwarding,no-pty ssh-rsa ...
+```
+
+- Allowed: `zfs send [-w] [-c] [-L] [-e] [-i|-I SOURCE] SNAPSHOT`, each flag
+  as a separate word. `SNAPSHOT` must be a snapshot in the allowed tree;
+  `SOURCE` must be a snapshot or bookmark of the same dataset.
+- Not allowed: `-R`, any other flag, or a `pigz` prefix.
+- `zfs list` is then limited to the same tree too; `zfs receive` stays
+  limited to it as without the flag.
+- `--allow-send` requires the filesystem. Without it, or with any other extra
+  argument, the script refuses every command.
 
 ## Installation
 
