@@ -17,10 +17,6 @@ case "$(uname)" in
     BASH=${BASH:-/usr/bin/bash}
     DATE=${DATE:-/usr/gnu/bin/date}
     ;;
-  Linux)
-    BASH=${BASH:-/bin/bash}
-    DATE=${DATE:-/bin/date}
-    ;;
   FreeBSD)
     BASH=${BASH:-/usr/local/bin/bash}
     DATE=${DATE:-/usr/local/bin/gdate}
@@ -32,6 +28,10 @@ case "$(uname)" in
       echo "$BASH not found, install /usr/ports/shells/bash" >&2
       exit 2
     fi
+    ;;
+  *)
+    BASH=${BASH:-/bin/bash}
+    DATE=${DATE:-/bin/date}
     ;;
 esac
 
