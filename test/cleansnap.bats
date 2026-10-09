@@ -26,12 +26,21 @@ teardown() {
   [[ "$output" == *"Usage:"* ]]
 }
 
+@test "rejects non-numeric retention counts" {
+  add_snap "tank/data@snap-a" "$(epoch '2025-01-15 06:00:00')"
+  run "$CLEANSNAP" tank/data 7x 0 0 0
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"must be numeric"* ]]
+}
+
 # --- Filesystem validation ---
 
 @test "exits with error for invalid filesystem" {
   export MOCK_ZFS_VALID_FS="tank/other"
   run "$CLEANSNAP" tank/data 7 4 3 2
   [ "$status" -eq 1 ]
+  # The message must appear even when not attached to a TTY (cron)
+  [[ "$output" == *"Invalid FileSystem"* ]]
   # Verify it checked the filesystem but stopped before listing snapshots
   grep -q "zfs list -H tank/data" "$MOCK_ZFS_LOG"
   if grep -q "name,creation" "$MOCK_ZFS_LOG"; then
@@ -466,7 +475,8 @@ teardown() {
 
 @test "exits with error when no snapshots exist" {
   run "$CLEANSNAP" tank/data 7 4 3 2
-  [ "$status" -ne 0 ]
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"No snapshots found for tank/data"* ]]
   # Verify it got past filesystem validation and attempted to list snapshots
   grep -q "zfs list -H tank/data" "$MOCK_ZFS_LOG"
   grep -q "name,creation" "$MOCK_ZFS_LOG"

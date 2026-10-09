@@ -58,9 +58,7 @@ YEARS=$5
 JUSTDOIT=$6
 
 if ! $ZFS list -H "$FS" > /dev/null 2> /dev/null; then
-  if [ -t 1 ]; then
-    echo "Invalid FileSystem" >&2
-  fi
+  echo "Invalid FileSystem" >&2
   exit 1
 fi
 
@@ -94,10 +92,28 @@ if [[ $YEARS = *:* ]]; then
   USEBM=1
 fi
 
+for n in "$DAYS" "$WEEKS" "$MONTHS" "$YEARS" "$BMDAYS" "$BMWEEKS" "$BMMONTHS" "$BMYEARS"; do
+  case $n in
+    ''|*[!0-9]*)
+      echo "Retention counts must be numeric: '$n'" >&2
+      exit 1
+      ;;
+  esac
+done
+
 if [ $USEBM -eq 1 ]; then
   LISTTYPES=snapshot,bookmark
 else
   LISTTYPES=snapshot
+fi
+
+# Plain assignment so a failing zfs list aborts via set -e instead of
+# silently yielding an empty list.
+SNAPLIST=$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation "$FS")
+
+if [ -z "$SNAPLIST" ]; then
+  echo "No snapshots found for $FS" >&2
+  exit 1
 fi
 
 i=1;
@@ -109,7 +125,7 @@ while read -r SNAP TIME; do
   timetosnap["$TIME"]="$SNAP"
   times[$i]="$TIME"
   i=$(($i+1))
-done <<<"$($ZFS list -t $LISTTYPES -d 1 -H -o name,creation -p -s creation "$FS")"
+done <<<"$SNAPLIST"
 
 TIMES=${times[*]}
 
@@ -199,15 +215,15 @@ KEEP=${#keeptimes[@]}
 REMOVE=${#snapstodelete[@]}
 
 if [ $KEEP -lt 1 ]; then
-  echo "Nothing to keep?!?"
+  echo "Nothing to keep?!?" >&2
   exit 1
 fi
 
 if [ $REMOVE -gt $KEEP ]; then
-  echo "Cannot remove more than 50% of the snapshots, try again!"
-  echo "All: ${timetosnap[*]}"
-  echo "Remove: ${snapstodelete[*]}"
-  echo "Keep: ${snapstokeep[*]}"
+  echo "Cannot remove more than 50% of the snapshots, try again!" >&2
+  echo "All: ${timetosnap[*]}" >&2
+  echo "Remove: ${snapstodelete[*]}" >&2
+  echo "Keep: ${snapstokeep[*]}" >&2
   # hidden feature :)
   if [ "$JUSTDOIT" != "JustDoIt" ]; then
     exit 1

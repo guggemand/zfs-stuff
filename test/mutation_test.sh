@@ -213,6 +213,9 @@ mutate_and_test "$CL" "pmut 's/\\[ -z \"\\\$5\" \\]/false/' $CL" \
 mutate_and_test "$CL" "pmut 's/if ! \\\$ZFS list -H/if \\\$ZFS list -H/' $CL" \
   "exits with error for invalid filesystem" "$CLT"
 
+mutate_and_test "$CL" "pmut 's/must be numeric/BROKEN/' $CL" \
+  "rejects non-numeric retention counts" "$CLT"
+
 # 24h rule -- shrink window to 1 second so nothing is within 24h
 mutate_and_test "$CL" "pmut 's/60\\*60\\*24/1/' $CL" \
   "keeps snapshots from the last 24 hours" "$CLT"
@@ -291,9 +294,10 @@ mutate_and_test "$CL" "pmut 's/if \\[ -z \"\\\$\\{keepbmtimes\\[\\\$i\\]\\}\" \\
 mutate_and_test "$CL" "pmut 's/if \\[ -z \"\\\$\\{keepbmtimes\\[\\\$i\\]\\}\" \\]/if false/' $CL" \
   "deletes bookmarks outside all retention windows" "$CLT"
 
-# No snapshots -- script fails on empty NEWEST before reaching this check
-skip_test "exits with error when no snapshots exist"
-
+# No snapshots -- disable the empty-list guard; the script then dies messily
+# without the clean error message the test asserts
+mutate_and_test "$CL" "pmut 's/\\[ -z \"\\\$SNAPLIST\" \\]/false/' $CL" \
+  "exits with error when no snapshots exist" "$CLT"
 
 echo ""
 echo "=== snap.sh ==="
