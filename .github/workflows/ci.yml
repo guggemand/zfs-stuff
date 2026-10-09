@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats shellcheck
+
+      - name: shellcheck
+        run: shellcheck *.sh
+
+      - name: bats test suite
+        run: bats test/
+
+      - name: mutation tests
+        run: test/mutation_test.sh
