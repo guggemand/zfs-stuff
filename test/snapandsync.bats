@@ -60,6 +60,17 @@ teardown() {
 sync tank/data" ]
 }
 
+@test "works when installed in a directory with spaces" {
+  SPACEDIR="$TEST_TMPDIR/dir with space"
+  mkdir "$SPACEDIR"
+  cp "$TEST_TMPDIR/snapandsync.sh" "$TEST_TMPDIR/snap.sh" "$TEST_TMPDIR/sync.sh" "$SPACEDIR/"
+
+  run "$SPACEDIR/snapandsync.sh" tank/data
+  [ "$status" -eq 0 ]
+  [ "$(cat "$MOCK_CALL_LOG")" = "snap tank/data
+sync tank/data" ]
+}
+
 @test "does not run sync.sh when snap.sh fails" {
   export MOCK_SNAP_EXIT=1
   run "$TEST_TMPDIR/snapandsync.sh" tank/data

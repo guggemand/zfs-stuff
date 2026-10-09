@@ -2,8 +2,7 @@
 # The script re-execs itself under bash below; lint the body as bash.
 # shellcheck shell=bash
 # SC2086: unquoted $LOCALCMD/$REMOTECMD/$SENDARGS word splitting is intentional.
-# SC2064: the trap must capture $LOCALCMD/$LOCALFS at set time.
-# shellcheck disable=SC2086,SC2064
+# shellcheck disable=SC2086
 
 # Re-exec under bash so we can use `set -o pipefail`; without it a failing
 # `zfs send` is silently masked by a successful `zfs receive`.  FreeBSD cron
@@ -87,7 +86,8 @@ if [ -n "$RUNNING" ] && [ "$RUNNING" != "-" ]; then
 fi
 
 $LOCALCMD set dlx.dk.sync:running=$$ "$LOCALFS"
-trap "$LOCALCMD inherit dlx.dk.sync:running $LOCALFS" 0 1 2 3 15
+# Single-quoted so "$LOCALFS" stays one argument when the trap fires.
+trap '$LOCALCMD inherit dlx.dk.sync:running "$LOCALFS"' 0 1 2 3 15
 
 # Find newest snapshots.  -d 1 lists only this filesystem's own snapshots;
 # a recursive list (-r) would mix in child-dataset snapshots and corrupt the

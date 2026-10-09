@@ -431,8 +431,11 @@ mutate_and_test "$SS" "pmut 's/\\[ -z \"\\\$1\" \\]/false/' $SS" \
   "exits with error when no arguments given" "$SST"
 mutate_and_test "$SS" "pmut 's/if ! \\\$ZFS list -H/if \\\$ZFS list -H/' $SS" \
   "exits with error for invalid filesystem" "$SST"
-mutate_and_test "$SS" "pmut 's/\\\$DIR\\/snap.sh \"\\\$1\"/true/' $SS" \
+mutate_and_test "$SS" "pmut 's/\"\\\$DIR\\/snap.sh\" \"\\\$1\"/true/' $SS" \
   "runs snap.sh then sync.sh with the filesystem" "$SST"
+# Unquote the script paths again
+mutate_and_test "$SS" "pmut 's/^\"\\\$DIR\/(snap|sync)\.sh\"/\\\$DIR\/\$1.sh/' $SS" \
+  "works when installed in a directory with spaces" "$SST"
 # Without set -e a failing snap.sh no longer stops the script
 mutate_and_test "$SS" "comment_line 'set -e' $SS" \
   "does not run sync.sh when snap.sh fails" "$SST"
@@ -444,9 +447,9 @@ SAT=test/syncall.bats
 
 mutate_and_test "$SA" "pmut 's/\\[ ! -x \"\\\$ZFS\" \\]/false/' $SA" \
   "exits with error when ZFS binary is missing" "$SAT"
-mutate_and_test "$SA" "pmut 's/\\\$DIR\\/sync.sh \"\\\$fs\"/echo skip/' $SA" \
+mutate_and_test "$SA" "pmut 's/\"\\\$DIR\\/sync.sh\" \"\\\$fs\"/echo skip/' $SA" \
   "runs sync.sh for each filesystem returned by zfs get" "$SAT"
-mutate_and_test "$SA" "pmut 's/\\\$DIR\\/sync.sh \"\\\$fs\"/echo skip/' $SA" \
+mutate_and_test "$SA" "pmut 's/\"\\\$DIR\\/sync.sh\" \"\\\$fs\"/echo skip/' $SA" \
   "exits 0 when all syncs succeed" "$SAT"
 mutate_and_test "$SA" "pmut 's/\\|\\| RC=\\\$\\?//' $SA" \
   "exits non-zero when a sync fails but continues syncing remaining filesystems" "$SAT"
@@ -457,6 +460,10 @@ mutate_and_test "$SA" "pmut 's/-s local -t filesystem,volume/-t filesystem/' $SA
 # Removing || RC=$? makes set -e kill script on failure -- different exit code, not neutral
 # but the test expects exit 3, gets exit 1 from set -e propagation
 skip_test "exit code reflects the last non-zero sync exit status"
+
+# Unquote the sync.sh path again
+mutate_and_test "$SA" "pmut 's/\"\\\$DIR\/sync\.sh\"/\\\$DIR\/sync.sh/' $SA" \
+  "works when installed in a directory with spaces" "$SAT"
 
 echo ""
 echo "==========================================="

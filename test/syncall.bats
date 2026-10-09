@@ -110,6 +110,17 @@ sync_count() {
   [ "$(sync_count)" -eq 3 ]
 }
 
+@test "works when installed in a directory with spaces" {
+  SPACEDIR="$TEST_TMPDIR/dir with space"
+  mkdir "$SPACEDIR"
+  cp "$TEST_TMPDIR/syncall.sh" "$TEST_TMPDIR/sync.sh" "$SPACEDIR/"
+  printf '%s\n' "tank/data" > "$MOCK_ZFS_FILESYSTEMS"
+
+  run "$SPACEDIR/syncall.sh"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$MOCK_SYNC_LOG")" = "tank/data" ]
+}
+
 # --- All syncs succeed ---
 
 @test "exits 0 when all syncs succeed" {
