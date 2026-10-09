@@ -8,8 +8,22 @@
 echo "remote_zfs $*" >> "$MOCK_REMOTE_LOG"
 case "$1" in
   list)
+    for a; do FS=$a; done
+    case " $* " in
+      *" -d 1 "*)
+        # Mimic an older authorized_keys_commands.sh that only allows -rH
+        if [ -n "$MOCK_REMOTE_LEGACY_ONLY" ]; then
+          echo "'zfs $*' not allowed" >&2
+          exit 1
+        fi
+        # -d 1: only the target filesystem's own snapshots
+        PATTERN="^$FS@" ;;
+      *)
+        # recursive: child datasets included
+        PATTERN="^$FS[@/]" ;;
+    esac
     if [ -f "$MOCK_REMOTE_SNAPSHOTS" ]; then
-      sort -t'	' -k2 -n "$MOCK_REMOTE_SNAPSHOTS" | cut -f1
+      grep "$PATTERN" "$MOCK_REMOTE_SNAPSHOTS" | sort -t'	' -k2 -n | cut -f1
     fi
     exit 0 ;;
   receive)

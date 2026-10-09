@@ -20,6 +20,12 @@ fi
 if [ "$1" = "/sbin/zfs" ] || [ "$1" = "zfs" ]; then
   case "$2" in
     "list")
+        # Current sync.sh form
+        if [ "$3 $4 $5 $6 $7 $8 $9 ${10} ${11}" = "-t snapshot -s creation -o name -d 1 -H" ]; then
+          "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}" "${11}" "${12}"
+          exit $?
+        fi
+        # Legacy recursive form, kept so old senders keep working during rollout
         if [ "$3 $4 $5 $6 $7 $8 $9" = "-t snapshot -s creation -o name -rH" ]; then
           "$1" "$2" "$3" "$4" "$5" "$6" "$7" "$8" "$9" "${10}"
           exit $?

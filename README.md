@@ -29,6 +29,15 @@ Replicates snapshots from a local filesystem to a remote one using `zfs send | z
 - Sends only incremental snapshots when the remote already has a common base
 - Uses `pv` for progress display if available and running interactively
 - Sets a `dlx.dk.sync:running` lock property to prevent concurrent syncs
+- Only the named filesystem is synced -- snapshots of child datasets are
+  ignored; give each child its own properties and sync it separately
+
+**Upgrading:** sync.sh now lists snapshots with `-d 1 -H` instead of the old
+recursive `-rH`. If the receiving host still runs an older
+`authorized_keys_commands.sh` that only allows `-rH`, sync.sh falls back to
+the recursive list and filters out the child datasets itself, so senders and
+receivers can be upgraded in any order. The current
+`authorized_keys_commands.sh` accepts both forms.
 
 ```
 sync.sh <filesystem>

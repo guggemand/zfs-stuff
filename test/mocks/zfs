@@ -28,6 +28,21 @@ fi
 
 CMD="$*"
 
+# Trailing non-flag arguments of a list command = target filesystems
+# (there can be several, e.g. check_zfs_snapshots.sh).  FSRE becomes an
+# alternation usable as grep -E "^($FSRE)@" to mimic the -d 1 depth limit.
+FSARGS=()
+skip=0
+for arg in "${@:2}"; do
+  if [ "$skip" = 1 ]; then skip=0; continue; fi
+  case "$arg" in
+    -t|-o|-s|-S|-d) skip=1 ;;
+    -*) ;;
+    *) FSARGS+=("$arg") ;;
+  esac
+done
+FSRE=$(IFS='|'; echo "${FSARGS[*]}")
+
 case "$1" in
   list)
     # zfs list -H <fs>  (validate filesystem)
@@ -42,14 +57,15 @@ case "$1" in
     fi
 
     # zfs list -t <type> ... -o name,creation ... -s creation <fs>
-    # Matches both "-o name,creation -p -s creation" and "-p -o name,creation -s creation"
+    # Matches both "-o name,creation -p -s creation" and "-p -o name,creation -s creation".
+    # All these callers use -d 1, so filter to the target fs's own snapshots.
     if [[ "$CMD" == *"-o name,creation"*"-s creation"* ]]; then
       if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
         TYPE="$3"
         if [ "$TYPE" = "snapshot" ]; then
-          grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | sort -t'	' -k2 -n || true
+          grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | grep -E "^($FSRE)@" | sort -t'	' -k2 -n || true
         else
-          sort -t'	' -k2 -n "$MOCK_ZFS_SNAPSHOTS"
+          grep -E "^($FSRE)[@#]" "$MOCK_ZFS_SNAPSHOTS" | sort -t'	' -k2 -n || true
         fi
       fi
       exit 0
@@ -58,15 +74,16 @@ case "$1" in
     # zfs list -t snapshot -d 1 -S creation -H -o name <fs> (newest snapshot)
     if [[ "$CMD" == *"-S creation -H -o name"* ]]; then
       if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
-        grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | sort -t'	' -k2 -rn | head -1 | cut -f1
+        grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | grep -E "^($FSRE)@" | sort -t'	' -k2 -rn | head -1 | cut -f1
       fi
       exit 0
     fi
 
-    # zfs list -t snapshot -s creation -o name -rH <fs> (name-only snapshot list)
-    if [[ "$CMD" == *"-o name -rH"* ]] || [[ "$CMD" == *"-o name"*"-rH"* ]]; then
+    # zfs list -t snapshot -s creation -o name -d 1 -H <fs>
+    # (sync.sh name-only snapshot list; -d 1 excludes child datasets)
+    if [[ "$CMD" == *"-o name -d 1 -H"* ]]; then
       if [ -n "$MOCK_ZFS_SNAPSHOTS" ] && [ -f "$MOCK_ZFS_SNAPSHOTS" ]; then
-        grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | sort -t'	' -k2 -n | cut -f1
+        grep -v '#' "$MOCK_ZFS_SNAPSHOTS" | grep -E "^($FSRE)@" | sort -t'	' -k2 -n | cut -f1
       fi
       exit 0
     fi

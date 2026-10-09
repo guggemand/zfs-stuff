@@ -97,6 +97,14 @@ AKT=test/authorized_keys_commands.bats
 mutate_and_test "$AK" "pmut 's/\"list\"\)/\"BROKEN\")/' $AK" \
   "allows zfs list with correct arguments" "$AKT"
 
+# Break the -d 1 -H match string
+mutate_and_test "$AK" "pmut 's/-o name -d 1 -H/-o name BROKEN/' $AK" \
+  "allows zfs list with correct arguments" "$AKT"
+
+# Break the legacy -rH match string
+mutate_and_test "$AK" "pmut 's/-t snapshot -s creation -o name -rH/BROKEN/' $AK" \
+  "allows legacy recursive zfs list during rollout" "$AKT"
+
 # Accept any path so /usr/bin/zfs would be allowed
 mutate_and_test "$AK" "pmut 's/if \\[ \"\\\$1\" = \"\/sbin\/zfs\" \\] \\|\\| \\[ \"\\\$1\" = \"zfs\" \\]/if true/' $AK" \
   "only accepts /sbin/zfs or zfs as command" "$AKT"
@@ -326,6 +334,17 @@ mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send \\\$SENDARGS -BROKEN/' 
 # Drop SENDARGS from the incremental send
 mutate_and_test "$SY" "pmut 's/send \\\$SENDARGS -i/send -i/' $SY" \
   "sendargs property is passed through to zfs send" "$SYT"
+
+# Revert to the recursive listing that mixed in child-dataset snapshots
+mutate_and_test "$SY" "pmut 's/-o name -d 1 -H/-o name -rH/' $SY" \
+  "sync ignores snapshots of child datasets" "$SYT"
+
+# Legacy fallback: skip the child-dataset filter
+mutate_and_test "$SY" "pmut 's/ \\| own_snapshots \"\\\$REMOTEFS\"//' $SY" \
+  "falls back to recursive remote list when the receiver rejects -d 1" "$SYT"
+# Legacy fallback: retry with the same rejected -d 1 form
+mutate_and_test "$SY" "pmut 's/-o name -rH \"\\\$REMOTEFS\"/-o name -d 1 -H \"\\\$REMOTEFS\"/' $SY" \
+  "falls back to recursive remote list when the receiver rejects -d 1" "$SYT"
 
 # Already in sync -- neutral mutation (stripping produces empty loop regardless)
 skip_test "already in sync does nothing and exits 0"

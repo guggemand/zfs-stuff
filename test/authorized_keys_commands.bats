@@ -15,6 +15,13 @@ teardown() {
 # --- Allowed: list ---
 
 @test "allows zfs list with correct arguments" {
+  export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -d 1 -H tank/data"
+  run "$AUTH_SCRIPT"
+  [ "$status" -eq 0 ]
+  grep -q "zfs list -t snapshot -s creation -o name -d 1 -H tank/data" "$MOCK_ZFS_LOG"
+}
+
+@test "allows legacy recursive zfs list during rollout" {
   export SSH_ORIGINAL_COMMAND="zfs list -t snapshot -s creation -o name -rH tank/data"
   run "$AUTH_SCRIPT"
   [ "$status" -eq 0 ]

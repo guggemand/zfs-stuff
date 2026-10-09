@@ -149,6 +149,45 @@ add_remote_snap() {
   log_not_contains "$MOCK_REMOTE_LOG" "remote_zfs receive"
 }
 
+@test "sync ignores snapshots of child datasets" {
+  # Regression: with a recursive list (-rH), same-named snapshots on child
+  # datasets appeared twice in the plan, producing duplicate/invalid
+  # incremental sends (zfs send -i @X @X).  -d 1 must exclude them.
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data/child@snap1" "1100"
+  add_local_snap "tank/data@snap2" "2000"
+  add_local_snap "tank/data/child@snap2" "2100"
+  add_remote_snap "backup/data@snap1" "1000"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+
+  grep -q "zfs send -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
+  # Exactly one send -- child snapshots must not add duplicates
+  [ "$(grep -c "zfs send" "$MOCK_ZFS_LOG")" -eq 1 ]
+}
+
+@test "falls back to recursive remote list when the receiver rejects -d 1" {
+  # An older authorized_keys_commands.sh on the receiver only allows -rH.
+  # The child's @snap3 is the newest remote snapshot overall; if it leaked
+  # through the filter, sync.sh would abort with "snap3 does not exist locally".
+  export MOCK_REMOTE_LEGACY_ONLY=1
+  add_local_snap "tank/data@snap1" "1000"
+  add_local_snap "tank/data@snap2" "2000"
+  add_remote_snap "backup/data@snap1" "1000"
+  add_remote_snap "backup/data/child@snap1" "1100"
+  add_remote_snap "backup/data/child@snap3" "3000"
+
+  run "$SYNC" tank/data
+  [ "$status" -eq 0 ]
+  # The fallback is expected during rollout -- stay quiet for cron
+  [ -z "$output" ]
+
+  grep -q "remote_zfs list -t snapshot -s creation -o name -rH backup/data" "$MOCK_REMOTE_LOG"
+  grep -q "zfs send -i tank/data@snap1 tank/data@snap2" "$MOCK_ZFS_LOG"
+  [ "$(grep -c "zfs send" "$MOCK_ZFS_LOG")" -eq 1 ]
+}
+
 @test "sendargs property is passed through to zfs send" {
   add_local_snap "tank/data@snap1" "1000"
   add_local_snap "tank/data@snap2" "2000"

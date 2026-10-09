@@ -83,10 +83,29 @@ fi
 $LOCALCMD set dlx.dk.sync:running=1 "$LOCALFS"
 trap "$LOCALCMD inherit dlx.dk.sync:running $LOCALFS" 0 1 2 3 15
 
-#find newest snapshots
-RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -rH "$REMOTEFS")
+# Find newest snapshots.  -d 1 lists only this filesystem's own snapshots;
+# a recursive list (-r) would mix in child-dataset snapshots and corrupt the
+# incremental send plan when children share snapshot names.
+#
+# A receiver still running an older authorized_keys_commands.sh rejects -d 1
+# and only allows the recursive -rH form.  Fall back to that and keep only
+# REMOTEFS's own snapshots -- children show up as "$REMOTEFS/child@snap".
+own_snapshots() {
+  local name
+  while IFS= read -r name; do
+    if [[ $name == "$1@"* ]]; then
+      printf '%s\n' "$name"
+    fi
+  done
+}
+if ! RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -d 1 -H "$REMOTEFS" 2>/dev/null); then
+  if [ -t 1 ]; then
+    echo "Remote rejected 'zfs list -d 1', falling back to recursive list" >&2
+  fi
+  RSNAP=$($REMOTECMD list -t snapshot -s creation -o name -rH "$REMOTEFS" | own_snapshots "$REMOTEFS")
+fi
 RSNAP=${RSNAP##*@}
-LSNAPS=$($LOCALCMD list -t snapshot -s creation -o name -rH "$LOCALFS")
+LSNAPS=$($LOCALCMD list -t snapshot -s creation -o name -d 1 -H "$LOCALFS")
 LSNAP=${LSNAPS##*@}
 
 if [ -z "$LSNAPS" ]; then
